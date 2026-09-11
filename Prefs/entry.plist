@@ -1,0 +1,10 @@
+{
+	entry = {
+		bundle = "BottomControlX";
+		cell = PSLinkCell;
+		detail = "BottomControlXController";
+		icon = "Icon.png";
+		isController = 1;
+		label = "BottomControlX";
+	};
+}

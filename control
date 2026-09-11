@@ -1,9 +1,16 @@
-Package: com.xcxiao.bottomcontrolx
+Package: com.ichitaso.bottomcontrolx
 Name: BottomControlX
-Depends: mobilesubstrate
-Version: 0.0.1
+Depends: firmware (>= 11.0), mobilesubstrate, preferenceloader
+Conflicts: com.xcxiao.bottomcontrolx
+Replaces: com.xcxiao.bottomcontrolx
+Version: 1.0.0
 Architecture: iphoneos-arm
-Description: An awesome MobileSubstrate tweak!
-Maintainer: XCXiao
-Author: XCXiao
+Description: Easier access to your Control Center etc on iPhone X series
+Maintainer: ichitaso
+Author: ichitaso/XCXiao
 Section: Tweaks
+Depiction: https://cydia.ichitaso.com/depiction/bottomcontrolx.html
+SileoDepiction: https://cydia.ichitaso.com/depiction/bottomcontrolx.json
+Homepage: https://ichitaso.com
+dev: ichitaso/XCXiao
+Icon: https://raw.githubusercontent.com/ichitaso/file/refs/heads/main/images/BottomControlX/Icon%403x.png
