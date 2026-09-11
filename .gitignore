@@ -11,3 +11,6 @@ _/*
 */obj/*
 obj/*
 .theos
+.theos/build_session
+.theos/fakeroot
+.theos/last_package
