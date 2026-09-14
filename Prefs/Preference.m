@@ -399,8 +399,8 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"SBBottomLeftGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @10]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"No Action"]];
+        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action"]];
         [specifiers addObject:spec];
         
         spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Center"
@@ -412,8 +412,8 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"SBBottomCenterGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @10]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"No Action"]];
+        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action"]];
         [specifiers addObject:spec];
         
         spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Right"
@@ -425,8 +425,8 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"SBBottomRightGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @10]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"No Action"]];
+        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action"]];
         [specifiers addObject:spec];
         
         _specifiers = [specifiers copy];
@@ -452,8 +452,8 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"LBottomLeftGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @5]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Take Screenshot"]];
+        [spec setValues:@[@1, @2, @3, @5, @6]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Take Screenshot", @"SecretShot"]];
         [specifiers addObject:spec];
         
         spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Center"
@@ -465,8 +465,8 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"LBottomCenterGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @5]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Take Screenshot"]];
+        [spec setValues:@[@1, @2, @3, @5, @6]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Take Screenshot", @"SecretShot"]];
         [specifiers addObject:spec];
         
         spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Right"
@@ -478,8 +478,25 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"LBottomRightGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @5]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Take Screenshot"]];
+        [spec setValues:@[@1, @2, @3, @5, @6]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Take Screenshot", @"SecretShot"]];
+        [specifiers addObject:spec];
+        
+        spec = [PSSpecifier emptyGroupSpecifier];
+        [spec setProperty:@"Allow works while passcode locked?" forKey:@"footerText"];
+        [specifiers addObject:spec];
+        
+        spec = [PSSpecifier preferenceSpecifierNamed:@"Enabled when passcode locked"
+                                              target:self
+                                                 set:@selector(setPreferenceValue:specifier:)
+                                                 get:@selector(readPreferenceValue:)
+                                              detail:Nil
+                                                cell:PSSwitchCell
+                                                edit:Nil];
+        [spec setProperty:@"passcode" forKey:@"key"];
+        [spec setProperty:@NO forKey:@"default"];
+        [spec setProperty:NSClassFromString(@"BCXSwitchTableCell") forKey:@"cellClass"];
+        [spec setProperty:@"No respring is required" forKey:@"cellSubtitleText"];
         [specifiers addObject:spec];
         
         _specifiers = [specifiers copy];
@@ -505,8 +522,8 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"AppBottomLeftGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @10]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"No Action"]];
+        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action"]];
         [specifiers addObject:spec];
         
         spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Center"
@@ -518,8 +535,8 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"AppBottomCenterGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @10]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"No Action"]];
+        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action"]];
         [specifiers addObject:spec];
         
         spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Right"
@@ -531,8 +548,8 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"AppBottomRightGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @10]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"No Action"]];
+        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action"]];
         [specifiers addObject:spec];
         
         _specifiers = [specifiers copy];

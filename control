@@ -3,7 +3,7 @@ Name: BottomControlX
 Depends: firmware (>= 11.0), mobilesubstrate, preferenceloader
 Conflicts: com.xcxiao.bottomcontrolx
 Replaces: com.xcxiao.bottomcontrolx
-Version: 1.0.0
+Version: 1.0.1
 Architecture: iphoneos-arm
 Description: Easier access to your Control Center etc on iPhone X series
 Maintainer: ichitaso

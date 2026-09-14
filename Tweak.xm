@@ -6,6 +6,7 @@
 #define Lock                3
 #define CS                  9
 #define ScreenShot          5
+#define SecretShot          6
 #define NoAction            10
 
 static BOOL enable;
@@ -27,6 +28,7 @@ static CGFloat rightValue;
 static float velocityValue;
 static BOOL lowerSensibility;
 static BOOL useLandscape;
+static BOOL passcode;
 
 static void settingsChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
     NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
@@ -51,6 +53,8 @@ static void settingsChanged(CFNotificationCenterRef center, void *observer, CFSt
     
     lowerSensibility = (BOOL)[dict[@"lowerSensibility"] ? : @NO boolValue];
     useLandscape = (BOOL)[dict[@"useLandscape"] ? : @YES boolValue];
+    
+    passcode = (BOOL)[dict[@"passcode"] ? : @NO boolValue];
 }
 
 static inline NSString *topApplicationIdentifier() {
@@ -80,8 +84,16 @@ static void showControlCenter(void) {
     }
 }
 
+// SecretShot https://github.com/iCrazeiOS/SBShot https://stackoverflow.com/questions/21415080/make-screenshot-of-the-whole-screen-in-ios7
+OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
+void takeScreenshotAndSave() {
+    UIImage *image = _UICreateScreenUIImage();
+    if (image == nil) return;
+    UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil);
+}
+
 static BOOL isPassCodeLocked() {
-    return [[NSClassFromString(@"SBLockStateAggregator") sharedInstance] lockState] & 0x02;
+    return passcode ? NO : [[NSClassFromString(@"SBLockStateAggregator") sharedInstance] lockState] & 0x02;
 }
 
 typedef NS_ENUM(NSInteger, GestureZone) {
@@ -183,6 +195,9 @@ inline int handleSwipeUpGesture(CGFloat startPointX, int leftAction, int centerA
             return 1;
         case ScreenShot:
             [(SpringBoard *)[UIApplication sharedApplication] takeScreenshot];
+            return 1;
+        case SecretShot:
+            takeScreenshotAndSave();
             return 1;
         case NoAction:
             return -1;
@@ -315,6 +330,7 @@ static BOOL isFluidGestureTriggered = NO;
     }
 }
 %end
+
 // expand the gesture area when using landscape mode
 %hook SBFluidSwitcherGestureExclusionTrapezoid
 - (BOOL)shouldBeginGestureAtStartingPoint:(CGPoint)arg1 velocity:(CGPoint)arg2 bounds:(CGRect)arg3 {
