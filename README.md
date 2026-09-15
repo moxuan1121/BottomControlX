@@ -5,7 +5,11 @@ Easier access to your ControlCenter and other things on iPhone X series & iPad. 
 
 ### Requirements
 * Theos (roothide)
-
+* Xcode11Toolchain
+```
+git clone https://github.com/nahtedetihw/Xcode11Toolchain
+mv XcodeDefault.xctoolchain $(THEOS)/toolchain/Xcode11.xctoolchain
+```
 ### Compiling
     sh build.sh
 
