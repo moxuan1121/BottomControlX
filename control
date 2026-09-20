@@ -3,9 +3,9 @@ Name: BottomControlX
 Depends: firmware (>= 11.0), mobilesubstrate, preferenceloader
 Conflicts: com.xcxiao.bottomcontrolx
 Replaces: com.xcxiao.bottomcontrolx
-Version: 1.0.1
+Version: 1.0.1+panel1
 Architecture: iphoneos-arm
-Description: Easier access to your Control Center etc on iPhone X series
+Description: Bottom swipe shortcut panel for iOS 15 roothide
 Maintainer: ichitaso
 Author: ichitaso/XCXiao
 Section: Tweaks

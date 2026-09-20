@@ -1,0 +1,40 @@
+name: Build iOS 15 roothide package
+
+on:
+  push:
+    branches: [panel-ios15-roothide]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check panel configuration
+        run: python3 tests/test_panel_contract.py
+
+      - name: Install Theos and iOS SDK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          brew install make ldid
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+          echo "THEOS=$RUNNER_TEMP/theos" >> "$GITHUB_ENV"
+          git clone --depth=1 --recurse-submodules https://github.com/roothide/theos.git "$RUNNER_TEMP/theos"
+          mkdir -p "$RUNNER_TEMP/theos/sdks"
+          gh release download --repo theos/sdks --pattern iPhoneOS16.5.sdk.tar.xz --dir "$RUNNER_TEMP/theos/sdks"
+          tar -xJf "$RUNNER_TEMP/theos/sdks/iPhoneOS16.5.sdk.tar.xz" -C "$RUNNER_TEMP/theos/sdks"
+
+      - name: Build roothide deb
+        run: make clean package THEOS_PACKAGE_SCHEME=roothide FINALPACKAGE=1
+
+      - name: Upload deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: BottomControlX-iOS15-roothide
+          path: packages/*.deb
+          if-no-files-found: error

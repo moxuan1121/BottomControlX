@@ -69,6 +69,9 @@ static void easy_spawn(const char * args[]) {
 @interface AppGestureSettingsListController : BottomControlXController
 @end
 
+@interface BCXPanelSettingsController : UITableViewController
+@end
+
 @implementation BottomControlXController
 - (NSArray *)specifiers {
     if (_specifiers == nil) {
@@ -128,6 +131,16 @@ static void easy_spawn(const char * args[]) {
         [spec setProperty:@YES forKey:@"isController"];
         [specifiers addObject:spec];
         
+        spec = [PSSpecifier preferenceSpecifierNamed:@"快捷面板项目与图标尺寸"
+                                              target:self
+                                                 set:NULL
+                                                 get:NULL
+                                              detail:Nil
+                                                cell:PSButtonCell
+                                                edit:Nil];
+        spec->action = @selector(openPanelSettings);
+        [specifiers addObject:spec];
+
         spec = [PSSpecifier preferenceSpecifierNamed:@"Gesture Area"
                                               target:self
                                                  set:Nil
@@ -308,6 +321,9 @@ static void easy_spawn(const char * args[]) {
 - (void)respring {
     easy_spawn((const char *[]){jbroot("/usr/bin/killall"), "backboardd", NULL});
 }
+- (void)openPanelSettings {
+    [self.navigationController pushViewController:[BCXPanelSettingsController new] animated:YES];
+}
 - (void)resetSettings {
     UIAlertController *alertController =
     [UIAlertController alertControllerWithTitle:@"Reset Settings?"
@@ -345,9 +361,11 @@ static void easy_spawn(const char * args[]) {
 - (void)setupHeader {
     UINavigationItem *navigationItem = self.navigationItem;
     
-    navigationItem.titleView =
-    [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"Icon"
-                                                  inBundle:[NSBundle bundleForClass:self.class]]];
+    UIImageView *titleIcon = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"Icon"
+                                                             inBundle:[NSBundle bundleForClass:self.class]]];
+    titleIcon.contentMode = UIViewContentModeScaleAspectFit;
+    titleIcon.frame = CGRectMake(0, 0, 32, 32);
+    navigationItem.titleView = titleIcon;
     
     UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.frame.size.width, 60)];
     
@@ -399,8 +417,8 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"SBBottomLeftGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action"]];
+        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10, @11]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action", @"快捷面板"]];
         [specifiers addObject:spec];
         
         spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Center"
@@ -412,8 +430,8 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"SBBottomCenterGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action"]];
+        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10, @11]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action", @"快捷面板"]];
         [specifiers addObject:spec];
         
         spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Right"
@@ -425,8 +443,8 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"SBBottomRightGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action"]];
+        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10, @11]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action", @"快捷面板"]];
         [specifiers addObject:spec];
         
         _specifiers = [specifiers copy];
@@ -522,8 +540,8 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"AppBottomLeftGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action"]];
+        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10, @11]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action", @"快捷面板"]];
         [specifiers addObject:spec];
         
         spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Center"
@@ -535,8 +553,8 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"AppBottomCenterGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action"]];
+        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10, @11]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action", @"快捷面板"]];
         [specifiers addObject:spec];
         
         spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Right"
@@ -548,8 +566,8 @@ static void easy_spawn(const char * args[]) {
                                                 edit:Nil];
         [spec setProperty:@"AppBottomRightGesture" forKey:@"key"];
         [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action"]];
+        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10, @11]
+                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action", @"快捷面板"]];
         [specifiers addObject:spec];
         
         _specifiers = [specifiers copy];

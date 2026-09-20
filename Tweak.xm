@@ -1,5 +1,10 @@
 #import "Tweak.h"
 #import "Common.h"
+#import "PanelData.h"
+#import "PanelView.h"
+#import <spawn.h>
+#import <signal.h>
+#import <unistd.h>
 
 #define Home                1
 #define CCC                 2
@@ -29,6 +34,7 @@ static float velocityValue;
 static BOOL lowerSensibility;
 static BOOL useLandscape;
 static BOOL passcode;
+static inline UIInterfaceOrientation getAppOrientation();
 
 static void settingsChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
     NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
@@ -94,6 +100,113 @@ void takeScreenshotAndSave() {
 
 static BOOL isPassCodeLocked() {
     return passcode ? NO : [[NSClassFromString(@"SBLockStateAggregator") sharedInstance] lockState] & 0x02;
+}
+
+static BOOL BCXIsLocked(void) {
+    Class lockClass = NSClassFromString(@"SBLockStateAggregator");
+    return lockClass && ([[lockClass sharedInstance] lockState] & 0x02);
+}
+
+static void BCXAlert(NSString *message) {
+    UIViewController *root = UIApplication.sharedApplication.keyWindow.rootViewController;
+    if (!root) return;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"快捷面板" message:message preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"知道了" style:UIAlertActionStyleDefault handler:nil]];
+    [root presentViewController:alert animated:YES completion:nil];
+}
+
+static BOOL BCXSpawn(NSString *program, NSString *argument) {
+    const char *path = jbroot(program.UTF8String);
+    if (access(path, X_OK) != 0) return NO;
+    pid_t pid = 0;
+    char *argv[] = {(char *)path, (char *)argument.UTF8String, NULL};
+    extern char **environ;
+    return posix_spawn(&pid, path, NULL, NULL, argv, environ) == 0;
+}
+
+static id BCXIconViewForBundleID(NSString *bundleID) {
+    Class controllerClass = NSClassFromString(@"SBIconController");
+    if (![controllerClass respondsToSelector:@selector(sharedInstance)]) return nil;
+    @try {
+        id controller = [controllerClass sharedInstance];
+        id model = [controller respondsToSelector:@selector(model)] ? [controller model] : nil;
+        SEL iconSelector = @selector(applicationIconForBundleIdentifier:);
+        id icon = [model respondsToSelector:iconSelector]
+            ? ((id (*)(id, SEL, id))objc_msgSend)(model, iconSelector, bundleID) : nil;
+        id map = [controller respondsToSelector:@selector(homescreenIconViewMap)] ? [controller homescreenIconViewMap] : nil;
+        SEL viewSelector = @selector(iconViewForIcon:);
+        return icon && [map respondsToSelector:viewSelector]
+            ? ((id (*)(id, SEL, id))objc_msgSend)(map, viewSelector, icon) : nil;
+    } @catch (NSException *exception) {
+        return nil;
+    }
+}
+
+static void BCXCloseBackgroundApps(void) {
+    Class controllerClass = NSClassFromString(@"SBApplicationController");
+    id controller = [controllerClass respondsToSelector:@selector(sharedInstance)] ? [controllerClass sharedInstance] : nil;
+    if (![controller respondsToSelector:@selector(runningApplications)]) return;
+    // ponytail: ends running background apps; add switcher-card removal only if users need it.
+    for (id app in [controller runningApplications]) {
+        @try {
+            if ([app respondsToSelector:@selector(isInternalApplication)] && [app isInternalApplication]) continue;
+            id state = [app processState];
+            if ([state isForeground]) continue;
+            int pid = [state pid];
+            if (pid > 1 && pid != getpid()) kill(pid, SIGTERM);
+        } @catch (NSException *exception) { }
+    }
+}
+
+static void BCXRunPanelItem(NSDictionary *item) {
+    NSString *kind = item[@"kind"];
+    NSString *identifier = item[@"id"];
+    if ([kind isEqualToString:@"shortcut"]) {
+        NSString *name = BCXShortcutName(identifier);
+        if (!name.length) { BCXAlert(@"这条快捷指令已不可用，请在设置中重新选择。"); return; }
+        NSURLComponents *url = [NSURLComponents new];
+        url.scheme = @"shortcuts";
+        url.host = @"run-shortcut";
+        url.queryItems = @[[NSURLQueryItem queryItemWithName:@"name" value:name]];
+        [UIApplication.sharedApplication openURL:url.URL options:@{} completionHandler:nil];
+        return;
+    }
+    if ([kind isEqualToString:@"quick"]) {
+        NSString *bundleID = item[@"app"];
+        id action = BCXQuickActionItem(bundleID, identifier);
+        id iconView = BCXIconViewForBundleID(bundleID);
+        Class iconClass = NSClassFromString(@"SBIconView");
+        SEL selector = @selector(activateShortcut:withBundleIdentifier:forIconView:);
+        if (!action || !iconView || ![iconClass respondsToSelector:selector]) {
+            BCXAlert(@"无法运行此应用的图标快捷操作。请确认应用图标仍在桌面，并在设置中重新选择。");
+            return;
+        }
+        @try {
+            ((void (*)(id, SEL, id, id, id))objc_msgSend)(iconClass, selector, action, bundleID, iconView);
+        } @catch (NSException *exception) {
+            BCXAlert(@"无法打开此应用的快捷操作。");
+        }
+        return;
+    }
+    if (![kind isEqualToString:@"builtin"]) return;
+    if ([identifier isEqualToString:@"control"]) showControlCenter();
+    else if ([identifier isEqualToString:@"notification"]) [[%c(SBCoverSheetPresentationManager) sharedInstance] setCoverSheetPresented:YES animated:YES withCompletion:nil];
+    else if ([identifier isEqualToString:@"screenshot"]) [(SpringBoard *)UIApplication.sharedApplication takeScreenshot];
+    else if ([identifier isEqualToString:@"lock"]) [(SpringBoard *)UIApplication.sharedApplication _simulateLockButtonPress];
+    else if ([identifier isEqualToString:@"closeapps"]) BCXCloseBackgroundApps();
+    else if ([identifier isEqualToString:@"respring"] || [identifier isEqualToString:@"closeandrespring"]) {
+        if ([identifier isEqualToString:@"closeandrespring"]) BCXCloseBackgroundApps();
+        if (!BCXSpawn(@"/usr/bin/sbreload", nil)) BCXAlert(@"无法启动 SpringBoard 重启工具。");
+    } else if ([identifier isEqualToString:@"userspace"]) {
+        if (!BCXSpawn(@"/basebin/jbctl", @"reboot_userspace")) BCXAlert(@"无法启动用户空间重启工具。");
+    } else if ([identifier isEqualToString:@"uicache"]) {
+        if (!BCXSpawn(@"/usr/bin/uicache", @"-a")) BCXAlert(@"无法启动图标刷新工具。");
+    }
+}
+
+static BOOL BCXOpenPanel(void) {
+    if (getAppOrientation() != UIInterfaceOrientationPortrait || BCXIsLocked()) return NO;
+    return BCXShowPanel(BCXPanelItems(), ^(NSDictionary *item) { BCXRunPanelItem(item); });
 }
 
 typedef NS_ENUM(NSInteger, GestureZone) {
@@ -184,6 +297,8 @@ inline int handleSwipeUpGesture(CGFloat startPointX, int leftAction, int centerA
                                                    : rightAction;
 
     switch (targetAction) {
+        case BCX_PANEL_ACTION:
+            return BCXOpenPanel() ? 1 : 0;
         case CCC:
             showControlCenter();
             return 1;

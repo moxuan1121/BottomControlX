@@ -19,8 +19,9 @@ INSTALL_TARGET_PROCESSES = backboardd
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = BottomControlX
-$(TWEAK_NAME)_FILES = Tweak.xm
+$(TWEAK_NAME)_FILES = Tweak.xm PanelData.m PanelView.m
 $(TWEAK_NAME)_CFLAGS = -fobjc-arc
+$(TWEAK_NAME)_LIBRARIES = sqlite3
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 
