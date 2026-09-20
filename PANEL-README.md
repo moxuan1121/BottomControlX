@@ -19,7 +19,7 @@ make clean package THEOS_PACKAGE_SCHEME=roothide
 ## 已知兼容边界
 
 - 快捷指令列表以只读方式读取 iOS 15 的 `Shortcuts.sqlite`，运行时使用选择时保存的名称通过系统 `shortcuts://run-shortcut` URL 执行。若后来重命名了指令，请重新选择。
-- 应用图标快捷操作由 SpringBoard 查询并提供给设置页，静态菜单项也可从应用资料读取。仅当系统能返回对应操作且能取得图标视图时才运行；不同应用的动态快捷操作需逐项实测。
+- 应用图标快捷操作由 SpringBoard 查询并提供给设置页，静态菜单项也可从应用资料读取。运行时优先使用图标视图激活；图标视图不可用时尝试应用快捷操作启动接口。不同应用的动态快捷操作需逐项实测。
 - 「关闭后台应用」向后台进程发送结束信号，系统任务切换器中的卡片可能保留。
 - 重启 SpringBoard、重启用户空间、刷新图标依赖 roothide 环境中对应的 `sbreload`、`jbctl`、`uicache` 工具。
 

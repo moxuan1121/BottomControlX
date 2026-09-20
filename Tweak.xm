@@ -5,6 +5,7 @@
 #import <spawn.h>
 #import <signal.h>
 #import <unistd.h>
+#import <dlfcn.h>
 
 #define Home                1
 #define CCC                 2
@@ -142,6 +143,37 @@ static void BCXQuickRequestReceived(CFNotificationCenterRef center, void *observ
     });
 }
 
+static BOOL BCXActivateQuickAction(id action, NSString *bundleID, id iconView) {
+    Class iconClass = NSClassFromString(@"SBIconView");
+    SEL activate = @selector(activateShortcut:withBundleIdentifier:forIconView:);
+    @try {
+        if (iconView && [iconClass respondsToSelector:activate]) {
+            ((void (*)(id, SEL, id, id, id))objc_msgSend)(iconClass, activate, action, bundleID, iconView);
+            return YES;
+        }
+        dlopen("/System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices", RTLD_LAZY);
+        Class actionClass = NSClassFromString(@"UIHandleApplicationShortcutAction");
+        Class optionsClass = NSClassFromString(@"FBSOpenApplicationOptions");
+        Class serviceClass = NSClassFromString(@"FBSOpenApplicationService");
+        SEL initAction = @selector(initWithSBSShortcutItem:);
+        SEL makeOptions = @selector(optionsWithDictionary:);
+        SEL open = @selector(openApplication:withOptions:completion:);
+        if (![actionClass instancesRespondToSelector:initAction] || ![optionsClass respondsToSelector:makeOptions] ||
+            ![serviceClass instancesRespondToSelector:open]) return NO;
+        id launchAction = ((id (*)(id, SEL, id))objc_msgSend)([actionClass alloc], initAction, action);
+        if (!launchAction) return NO;
+        SEL modeSelector = @selector(activationMode);
+        BOOL suspended = [action respondsToSelector:modeSelector] &&
+            ((NSUInteger (*)(id, SEL))objc_msgSend)(action, modeSelector) == 1;
+        NSDictionary *values = @{@"__ActivateSuspended":@(suspended), @"__Actions":@[launchAction],
+            @"__PromptUnlockDevice":@YES, @"__LaunchOrigin":@"__SBLaunchOriginShortcutItem"};
+        id options = ((id (*)(id, SEL, id))objc_msgSend)(optionsClass, makeOptions, values);
+        id service = [serviceClass new];
+        ((void (*)(id, SEL, id, id, id))objc_msgSend)(service, open, bundleID, options, nil);
+        return YES;
+    } @catch (NSException *exception) { return NO; }
+}
+
 static void BCXCloseBackgroundApps(void) {
     Class controllerClass = NSClassFromString(@"SBApplicationController");
     id controller = [controllerClass respondsToSelector:@selector(sharedInstance)] ? [controllerClass sharedInstance] : nil;
@@ -182,15 +214,11 @@ static void BCXRunPanelItem(NSDictionary *item) {
         NSString *bundleID = item[@"app"];
         id iconView = BCXIconViewForBundleID(bundleID);
         id action = BCXQuickActionItem(bundleID, identifier, iconView);
-        Class iconClass = NSClassFromString(@"SBIconView");
-        SEL selector = @selector(activateShortcut:withBundleIdentifier:forIconView:);
-        if (!action || !iconView || ![iconClass respondsToSelector:selector]) {
-            BCXAlert(@"无法运行此应用的图标快捷操作。请确认应用图标仍在桌面，并在设置中重新选择。");
+        if (!action) {
+            BCXAlert(@"此应用的快捷操作已不可用，请在设置中重新选择。");
             return;
         }
-        @try {
-            ((void (*)(id, SEL, id, id, id))objc_msgSend)(iconClass, selector, action, bundleID, iconView);
-        } @catch (NSException *exception) {
+        if (!BCXActivateQuickAction(action, bundleID, iconView)) {
             BCXAlert(@"无法打开此应用的快捷操作。");
         }
         return;
