@@ -93,14 +93,14 @@ static BOOL BCXSpawn(NSString *program, NSString *argument) {
 static BOOL BCXRebootUserspace(void) {
     const char *jbctl = jbroot("/basebin/jbctl");
     pid_t pid = 0;
-    char *argv[] = {(char *)jbctl, "reboot_userspace", NULL};
+    char *argv[] = {(char *)jbctl, (char *)"reboot_userspace", NULL};
     extern char **environ;
     if (access(jbctl, X_OK) == 0 && posix_spawn(&pid, jbctl, NULL, NULL, argv, environ) == 0) {
         int status = 0;
         if (waitpid(pid, &status, 0) < 0 || !WIFEXITED(status) || WEXITSTATUS(status) == 0) return YES;
     }
     const char *launchctl = "/bin/launchctl";
-    char *fallback[] = {(char *)launchctl, "reboot", "userspace", NULL};
+    char *fallback[] = {(char *)launchctl, (char *)"reboot", (char *)"userspace", NULL};
     return posix_spawn(&pid, launchctl, NULL, NULL, fallback, environ) == 0;
 }
 
