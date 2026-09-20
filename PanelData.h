@@ -1,5 +1,9 @@
 #import <Foundation/Foundation.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define BCX_PANEL_ACTION 11
 #define BCX_PANEL_ITEMS @"panelItems"
 #define BCX_ICON_SIZE @"panelIconSize"
@@ -15,3 +19,7 @@ id BCXQuickActionItem(NSString *bundleID, NSString *type);
 NSInteger BCXIconSize(void);
 void BCXSetIconSize(NSInteger size);
 NSString *BCXSymbol(NSDictionary *item);
+
+#ifdef __cplusplus
+}
+#endif
