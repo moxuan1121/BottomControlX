@@ -110,7 +110,7 @@ static __weak UIWindow *previousKeyWindow;
 @end
 
 BOOL BCXBeginPanel(NSArray<NSDictionary *> *items, void (^runAction)(NSDictionary *item)) {
-    if (panelWindow) return YES;
+    if (panelWindow) return NO;
     UIApplication *application = UIApplication.sharedApplication;
     UIWindowScene *scene = nil;
     for (UIScene *candidate in application.connectedScenes) {
@@ -142,14 +142,15 @@ void BCXUpdatePanel(CGFloat progress) {
 
 void BCXFinishPanel(BOOL show) {
     if (!panelWindow) return;
+    UIWindow *window = panelWindow;
     if (show) {
         [panelWindow makeKeyWindow];
         panelWindow.userInteractionEnabled = YES;
     }
     [UIView animateWithDuration:0.38 delay:0 usingSpringWithDamping:0.84 initialSpringVelocity:0 options:UIViewAnimationOptionBeginFromCurrentState animations:^{
-        [(BCXPanelController *)panelWindow.rootViewController setRevealProgress:show ? 1 : 0];
+        [(BCXPanelController *)window.rootViewController setRevealProgress:show ? 1 : 0];
     } completion:^(BOOL finished) {
-        if (!show) BCXHidePanel();
+        if (!show && panelWindow == window) BCXHidePanel();
     }];
 }
 
