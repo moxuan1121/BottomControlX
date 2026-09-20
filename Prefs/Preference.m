@@ -1,577 +1,174 @@
-#import <QuartzCore/QuartzCore.h>
 #import <UIKit/UIKit.h>
 #import <Preferences/PSListController.h>
 #import <Preferences/PSSpecifier.h>
-#import <Preferences/PSSwitchTableCell.h>
-#import <Preferences/PSTableCell.h>
-#import <Preferences/PSEditableTableCell.h>
 #import <Preferences/PSListItemsController.h>
 #import <Preferences/PSSliderTableCell.h>
 #import <SafariServices/SafariServices.h>
 #import <spawn.h>
 #import "../Common.h"
+#import "../PanelData.h"
 
-static void easy_spawn(const char * args[]) {
-    pid_t pid;
-    int status;
-    posix_spawn(&pid, args[0], NULL, NULL, (char * const*)args, NULL);
-    waitpid(pid, &status, WEXITED);
-}
-
-@interface UIImage (SettingsKit)
-+ (UIImage *)imageNamed:(NSString *)named inBundle:(NSBundle *)bundle;
-@end
-
-@interface PSSpecifier (ValuesAndTitles)
+@interface PSSpecifier (BCXChoices)
 - (void)setValues:(NSArray *)values titles:(NSArray *)titles;
 @end
 
-@interface FixedSliderCell : PSSliderTableCell
-@end
-
-@implementation FixedSliderCell
-- (void)layoutSubviews {
-    [super layoutSubviews];
-    
-    BOOL isRTL = ([UIApplication sharedApplication].userInterfaceLayoutDirection == UIUserInterfaceLayoutDirectionRightToLeft);
-    // Fix issue where left and right were swapped for some reason on iOS 26
-    if (!isRTL && [self.control respondsToSelector:@selector(setSemanticContentAttribute:)]) {
-        self.control.semanticContentAttribute = UISemanticContentAttributeForceLeftToRight;
-    }
-}
-@end
-
-@interface PSSubtitleSwitchTableCell : PSSwitchTableCell
-@end
-
-@interface BCXSwitchTableCell : PSSubtitleSwitchTableCell
-@end
-
-@implementation BCXSwitchTableCell
-- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier specifier:(PSSpecifier *)specifier {
-    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier specifier:specifier];
-    if (self) {
-        [((UISwitch *)[self control]) setOnTintColor:SettingsColor(1)];
-    }
-    return self;
-}
-@end
-
-@interface BottomControlXController : PSListController
-@end
-
-@interface SBGestureSettingsListController : BottomControlXController
-@end
-
-@interface LockGestureSettingsListController : BottomControlXController
-@end
-
-@interface AppGestureSettingsListController : BottomControlXController
+@interface UIImage (BCXSettingsIcon)
++ (UIImage *)imageNamed:(NSString *)name inBundle:(NSBundle *)bundle;
 @end
 
 @interface BCXPanelSettingsController : UITableViewController
 @end
 
+@interface BottomControlXController : PSListController
+@end
+
 @implementation BottomControlXController
+
+- (PSSpecifier *)choiceNamed:(NSString *)name key:(NSString *)key defaultValue:(id)defaultValue values:(NSArray *)values titles:(NSArray *)titles {
+    PSSpecifier *item = [PSSpecifier preferenceSpecifierNamed:name target:self
+        set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
+        detail:PSListItemsController.class cell:PSLinkListCell edit:Nil];
+    [item setProperty:key forKey:@"key"];
+    [item setProperty:defaultValue forKey:@"default"];
+    [item setValues:values titles:titles];
+    return item;
+}
+
+- (PSSpecifier *)groupNamed:(NSString *)name footer:(NSString *)footer {
+    PSSpecifier *item = name
+        ? [PSSpecifier preferenceSpecifierNamed:name target:self set:Nil get:Nil detail:Nil cell:PSGroupCell edit:Nil]
+        : [PSSpecifier emptyGroupSpecifier];
+    if (footer) [item setProperty:footer forKey:@"footerText"];
+    return item;
+}
+
+- (PSSpecifier *)buttonNamed:(NSString *)name action:(SEL)action {
+    PSSpecifier *item = [PSSpecifier preferenceSpecifierNamed:name target:self set:Nil get:Nil
+        detail:Nil cell:PSButtonCell edit:Nil];
+    item->action = action;
+    return item;
+}
+
 - (NSArray *)specifiers {
-    if (_specifiers == nil) {
-        NSMutableArray *specifiers = [NSMutableArray array];
-        PSSpecifier *spec;
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Enabled"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:Nil
-                                                cell:PSSwitchCell
-                                                edit:Nil];
-        [spec setProperty:@"enable" forKey:@"key"];
-        [spec setProperty:@YES forKey:@"default"];
-        [spec setProperty:NSClassFromString(@"BCXSwitchTableCell") forKey:@"cellClass"];
-        [spec setProperty:@"No respring is required" forKey:@"cellSubtitleText"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Custom Gesture"
-                                              target:self
-                                                 set:Nil
-                                                 get:Nil
-                                              detail:Nil
-                                                cell:PSGroupCell
-                                                edit:Nil];
-        [spec setProperty:@"Custom the swipe up gesture from left/center/right bottom of the screen." forKey:@"footerText"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"SpringBoard"
-                                              target:self
-                                                 set:NULL
-                                                 get:NULL
-                                              detail:SBGestureSettingsListController.class
-                                                cell:PSLinkCell
-                                                edit:Nil];
-        [spec setProperty:@YES forKey:@"isController"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"LockScreen"
-                                              target:self
-                                                 set:NULL
-                                                 get:NULL
-                                              detail:LockGestureSettingsListController.class
-                                                cell:PSLinkCell
-                                                edit:Nil];
-        [spec setProperty:@YES forKey:@"isController"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"In Apps"
-                                              target:self
-                                                 set:NULL
-                                                 get:NULL
-                                              detail:AppGestureSettingsListController.class
-                                                cell:PSLinkCell
-                                                edit:Nil];
-        [spec setProperty:@YES forKey:@"isController"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"快捷面板项目与图标尺寸"
-                                              target:self
-                                                 set:NULL
-                                                 get:NULL
-                                              detail:Nil
-                                                cell:PSButtonCell
-                                                edit:Nil];
-        spec->action = @selector(openPanelSettings);
-        [specifiers addObject:spec];
+    if (_specifiers) return _specifiers;
+    self.title = @"BottomControlX";
+    NSMutableArray *items = [NSMutableArray array];
+    PSSpecifier *item = [PSSpecifier preferenceSpecifierNamed:@"启用插件" target:self
+        set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
+        detail:Nil cell:PSSwitchCell edit:Nil];
+    [item setProperty:@"enable" forKey:@"key"];
+    [item setProperty:@YES forKey:@"default"];
+    [items addObject:item];
 
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Gesture Area"
-                                              target:self
-                                                 set:Nil
-                                                 get:Nil
-                                              detail:Nil
-                                                cell:PSGroupCell
-                                                edit:Nil];
-        [spec setProperty:@"Custom Left & Right Gesture area's width." forKey:@"footerText"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Left Gesture Area"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:PSListItemsController.class
-                                                cell:PSLinkListCell
-                                                edit:Nil];
-        [spec setProperty:@"leftValue" forKey:@"key"];
-        [spec setProperty:@0.25 forKey:@"default"];
-        [spec setValues:@[@0.0, @0.5, @0.1, @0.15, @0.2, @0.25, @0.3]
-                 titles:@[@"0\%", @"5\%", @"10\%", @"15\%", @"20\%", @"25\%", @"30\%"]];
-        [specifiers addObject:spec];
-                
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Right Gesture Area"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:PSListItemsController.class
-                                                cell:PSLinkListCell
-                                                edit:Nil];
-        [spec setProperty:@"rightValue" forKey:@"key"];
-        [spec setProperty:@0.75 forKey:@"default"];
-        [spec setValues:@[@0.7, @0.75, @0.8, @0.85, @0.9, @0.95, @1.10]
-                 titles:@[@"70\%", @"75\%", @"80\%", @"85\%", @"90\%", @"95\%", @"100\%"]];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier emptyGroupSpecifier];
-        [spec setProperty:@"Custom the velocity value which is needed to trigger BottomControlX gesture when you have lower gesture sensibility enabled." forKey:@"footerText"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Lower gesture sensibility"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:Nil
-                                                cell:PSSwitchCell
-                                                edit:Nil];
-        [spec setProperty:@"lowerSensibility" forKey:@"key"];
-        [spec setProperty:@NO forKey:@"default"];
-        [spec setProperty:NSClassFromString(@"BCXSwitchTableCell") forKey:@"cellClass"];
-        [spec setProperty:@"No respring is required" forKey:@"cellSubtitleText"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"velocityValue"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:Nil
-                                                cell:PSSliderCell
-                                                edit:Nil];
-        if (@available(iOS 26.0, *)) {
-            [spec setProperty:NSClassFromString(@"FixedSliderCell") forKey:@"cellClass"];
-        }
-        [spec setProperty:@"velocityValue" forKey:@"key"];
-        [spec setProperty:@150.0 forKey:@"default"];
-        [spec setProperty:@100.0 forKey:@"min"];
-        [spec setProperty:@500.0 forKey:@"max"];
-        [spec setProperty:@YES forKey:@"isSegmented"];
-        [spec setProperty:@(40) forKey:@"segmentCount"];
-        [spec setProperty:@YES forKey:@"showValue"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier emptyGroupSpecifier];
-        [specifiers addObject:spec];
+    [items addObject:[self groupNamed:@"全局上滑手势"
+        footer:@"左、中、右三个区域在桌面和应用内通用。竖屏生效；锁屏保留系统解锁手势。选用插件动作或快捷面板时，该区域的系统上滑动作由插件接管。"]];
+    NSArray *actions = @[@1, @2, @3, @9, @5, @6, @10, @11];
+    NSArray *names = @[@"系统上滑", @"控制中心", @"锁屏", @"通知中心", @"截图", @"静默截图", @"不执行动作", @"快捷面板"];
+    [items addObject:[self choiceNamed:@"左侧区域" key:@"BottomLeftGesture" defaultValue:@1 values:actions titles:names]];
+    [items addObject:[self choiceNamed:@"中间区域" key:@"BottomCenterGesture" defaultValue:@1 values:actions titles:names]];
+    [items addObject:[self choiceNamed:@"右侧区域" key:@"BottomRightGesture" defaultValue:@1 values:actions titles:names]];
+    [items addObject:[self buttonNamed:@"快捷面板项目与图标尺寸" action:@selector(openPanelSettings)]];
 
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Enable gestures in Landscape"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:Nil
-                                                cell:PSSwitchCell
-                                                edit:Nil];
-        [spec setProperty:@"useLandscape" forKey:@"key"];
-        [spec setProperty:@YES forKey:@"default"];
-        [spec setProperty:NSClassFromString(@"BCXSwitchTableCell") forKey:@"cellClass"];
-        [spec setProperty:@"No respring is required" forKey:@"cellSubtitleText"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier emptyGroupSpecifier];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Reset Area & Slider"
-                                              target:self
-                                                 set:Nil
-                                                 get:Nil
-                                              detail:Nil
-                                                cell:PSButtonCell
-                                                edit:Nil];
+    [items addObject:[self groupNamed:@"手势范围与灵敏度" footer:@"调整左右区域宽度；中间区域使用剩余宽度。"]];
+    [items addObject:[self choiceNamed:@"左侧区域宽度" key:@"leftValue" defaultValue:@0.25
+        values:@[@0.0, @0.05, @0.1, @0.15, @0.2, @0.25, @0.3]
+        titles:@[@"0%", @"5%", @"10%", @"15%", @"20%", @"25%", @"30%"]]];
+    [items addObject:[self choiceNamed:@"右侧区域起点" key:@"rightValue" defaultValue:@0.75
+        values:@[@0.7, @0.75, @0.8, @0.85, @0.9, @0.95, @1.0]
+        titles:@[@"70%", @"75%", @"80%", @"85%", @"90%", @"95%", @"100%"]]];
+    PSSpecifier *sensitivity = [PSSpecifier preferenceSpecifierNamed:@"降低手势灵敏度" target:self
+        set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
+        detail:Nil cell:PSSwitchCell edit:Nil];
+    [sensitivity setProperty:@"lowerSensibility" forKey:@"key"];
+    [sensitivity setProperty:@NO forKey:@"default"];
+    [items addObject:sensitivity];
+    PSSpecifier *velocity = [PSSpecifier preferenceSpecifierNamed:@"触发速度阈值" target:self
+        set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
+        detail:Nil cell:PSSliderCell edit:Nil];
+    [velocity setProperty:@"velocityValue" forKey:@"key"];
+    [velocity setProperty:@150.0 forKey:@"default"];
+    [velocity setProperty:@100.0 forKey:@"min"];
+    [velocity setProperty:@500.0 forKey:@"max"];
+    [velocity setProperty:@YES forKey:@"showValue"];
+    [items addObject:velocity];
 
-        spec->action = @selector(resetSliders);
-        [spec setProperty:@1 forKey:@"alignment"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier emptyGroupSpecifier];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Reset Settings"
-                                              target:self
-                                                 set:Nil
-                                                 get:Nil
-                                              detail:Nil
-                                                cell:PSButtonCell
-                                                edit:Nil];
-
-        spec->action = @selector(resetSettings);
-        [spec setProperty:@1 forKey:@"alignment"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Respring"
-                                              target:self
-                                                 set:Nil
-                                                 get:Nil
-                                              detail:Nil
-                                                cell:PSButtonCell
-                                                edit:Nil];
-
-        spec->action = @selector(respring);
-        [spec setProperty:@1 forKey:@"alignment"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier emptyGroupSpecifier];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Other Tweaks"
-                                              target:self
-                                                 set:NULL
-                                                 get:NULL
-                                              detail:Nil
-                                                cell:PSLinkCell
-                                                edit:Nil];
-        
-        spec->action = @selector(openDaonate);
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier emptyGroupSpecifier];
-        [spec setProperty:@1 forKey:@"footerAlignment"];
-        [spec setProperty:@"BottomControlX, by XCXiao." forKey:@"footerText"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier emptyGroupSpecifier];
-        [spec setProperty:@1 forKey:@"footerAlignment"];
-        [spec setProperty:CREDITS forKey:@"footerText"];
-        [specifiers addObject:spec];
-        
-        _specifiers = [specifiers copy];
-    }
+    [items addObject:[self groupNamed:@"维护" footer:nil]];
+    [items addObject:[self buttonNamed:@"重置手势范围与灵敏度" action:@selector(resetSliders)]];
+    [items addObject:[self buttonNamed:@"重置全部设置" action:@selector(resetSettings)]];
+    [items addObject:[self buttonNamed:@"重启 SpringBoard" action:@selector(respring)]];
+    [items addObject:[self buttonNamed:@"作者的其他插件" action:@selector(openDonation)]];
+    [items addObject:[self groupNamed:nil footer:CREDITS]];
+    _specifiers = [items copy];
     return _specifiers;
 }
+
 - (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
-    NSMutableDictionary *prefs = [[NSMutableDictionary alloc] initWithContentsOfFile:PREF_PATH]?:[NSMutableDictionary dictionary];
-    [prefs setObject:value forKey:specifier.properties[@"key"]];
-    [prefs writeToFile:PREF_PATH atomically:YES];
-    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR(Notify_Preferences), NULL, NULL, YES);
+    NSString *key = specifier.properties[@"key"];
+    if (!key || !value) return;
+    NSMutableDictionary *prefs = [NSMutableDictionary dictionaryWithContentsOfFile:PREF_PATH] ?: [NSMutableDictionary dictionary];
+    prefs[key] = value;
+    if ([prefs writeToFile:PREF_PATH atomically:YES])
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR(Notify_Preferences), NULL, NULL, YES);
 }
-- (id)readPreferenceValue:(PSSpecifier*)specifier {
-    NSDictionary *prefs = [[NSDictionary alloc] initWithContentsOfFile:PREF_PATH];
-    return prefs[specifier.properties[@"key"]]?:[[specifier properties] objectForKey:@"default"];
+
+- (id)readPreferenceValue:(PSSpecifier *)specifier {
+    NSString *key = specifier.properties[@"key"];
+    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
+    if (prefs[key]) return prefs[key];
+    if ([key hasPrefix:@"Bottom"] && [key hasSuffix:@"Gesture"]) {
+        NSString *suffix = [key substringFromIndex:@"Bottom".length];
+        id home = prefs[[ @"SBBottom" stringByAppendingString:suffix]];
+        id app = prefs[[ @"AppBottom" stringByAppendingString:suffix]];
+        return ([home integerValue] != 1 ? home : ([app integerValue] != 1 ? app : (home ?: app ?: @1)));
+    }
+    return specifier.properties[@"default"];
 }
-- (void)resetSliders {
-    NSMutableDictionary *dict = [[NSMutableDictionary alloc] initWithContentsOfFile:PREF_PATH]?:[NSMutableDictionary dictionary];
-    [dict removeObjectForKey:@"leftValue"];
-    [dict removeObjectForKey:@"rightValue"];
-    [dict removeObjectForKey:@"velocityValue"];
-    [dict writeToFile:PREF_PATH atomically:YES];
-    [self reloadSpecifiers];
-    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR(Notify_Preferences), NULL, NULL, YES);
-}
-- (void)respring {
-    easy_spawn((const char *[]){jbroot("/usr/bin/killall"), "backboardd", NULL});
-}
+
 - (void)openPanelSettings {
     [self.navigationController pushViewController:[BCXPanelSettingsController new] animated:YES];
 }
-- (void)resetSettings {
-    UIAlertController *alertController =
-    [UIAlertController alertControllerWithTitle:@"Reset Settings?"
-                                        message:@"Delete the configuration file and reset the settings"
-                                 preferredStyle:UIAlertControllerStyleAlert];
 
-    [alertController addAction:[UIAlertAction actionWithTitle:@"YES"
-                                                        style:UIAlertActionStyleDestructive
-                                                      handler:^(UIAlertAction *action) {
+- (void)resetSliders {
+    NSMutableDictionary *prefs = [NSMutableDictionary dictionaryWithContentsOfFile:PREF_PATH] ?: [NSMutableDictionary dictionary];
+    for (NSString *key in @[@"leftValue", @"rightValue", @"velocityValue", @"lowerSensibility"]) [prefs removeObjectForKey:key];
+    [prefs writeToFile:PREF_PATH atomically:YES];
+    [self reloadSpecifiers];
+    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR(Notify_Preferences), NULL, NULL, YES);
+}
+
+- (void)resetSettings {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"重置全部设置？"
+        message:@"这会移除手势设置和快捷面板项目。" preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"重置" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
         [[NSFileManager defaultManager] removeItemAtPath:PREF_PATH error:nil];
         [self reloadSpecifiers];
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR(Notify_Preferences), NULL, NULL, YES);
     }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
 
-    [alertController addAction:[UIAlertAction actionWithTitle:@"Cancel"
-                                                        style:UIAlertActionStyleDefault
-                                                      handler:nil]];
+- (void)respring {
+    const char *path = jbroot("/usr/bin/sbreload");
+    pid_t pid = 0;
+    char *args[] = {(char *)path, NULL};
+    extern char **environ;
+    posix_spawn(&pid, path, NULL, NULL, args, environ);
+}
 
-    [self presentViewController:alertController animated:YES completion:nil];
+- (void)openDonation {
+    SFSafariViewController *browser = [[SFSafariViewController alloc] initWithURL:
+        [NSURL URLWithString:@"https://cydia.ichitaso.com/donation.html"]];
+    [self presentViewController:browser animated:YES completion:nil];
 }
-- (void)openDaonate {
-    [self openURLInBrowser:@"https://cydia.ichitaso.com/donation.html"];
-}
-- (void)openURLInBrowser:(NSString *)url {
-    SFSafariViewController *safari = [[SFSafariViewController alloc] initWithURL:[NSURL URLWithString:url]];
-    [self presentViewController:safari animated:YES completion:nil];
-}
+
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
-    
-    if (self.class == BottomControlXController.class) {
-        [self setupHeader];
-    }
-}
-- (void)setupHeader {
-    UINavigationItem *navigationItem = self.navigationItem;
-    
-    UIImageView *titleIcon = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"Icon"
-                                                             inBundle:[NSBundle bundleForClass:self.class]]];
-    titleIcon.contentMode = UIViewContentModeScaleAspectFit;
-    titleIcon.frame = CGRectMake(0, 0, 32, 32);
-    navigationItem.titleView = titleIcon;
-    
-    UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.frame.size.width, 60)];
-    
-    UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(0, 17, header.frame.size.width, header.frame.size.height - 10)];
-    label.text = @"BottomControlX";
-    label.font = [UIFont fontWithName:@"PingFangSC-Thin" size:35];
-    label.backgroundColor = [UIColor clearColor];
-    label.textAlignment = NSTextAlignmentCenter;
-    
-    header.frame = CGRectMake(header.frame.origin.x, header.frame.origin.y, header.frame.size.width, header.frame.size.height + 35);
-    label.frame = CGRectMake(label.frame.origin.x, 10, label.frame.size.width, label.frame.size.height - 5);
-    [header addSubview:label];
-    
-    UILabel *subText = [[UILabel alloc] initWithFrame:CGRectMake(header.frame.origin.x, label.frame.origin.y + label.frame.size.height, header.frame.size.width, 20)];
-    
-    subText.text = @"Control your iPhone X series";
-    subText.font = [UIFont fontWithName:@"PingFangSC-Thin" size:16];
-    subText.backgroundColor = [UIColor clearColor];
-    subText.textAlignment = NSTextAlignmentCenter;
-    [header addSubview:subText];
-    
-    if (header) {
-        header.backgroundColor = [UIColor clearColor];
-        header.autoresizesSubviews = YES;
-        header.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-    }
-
-    if (header) {
-        [self.table setTableHeaderView:header];
-    }
+    UIImage *icon = [UIImage imageNamed:@"Icon" inBundle:[NSBundle bundleForClass:self.class]];
+    UIImageView *view = [[UIImageView alloc] initWithImage:icon];
+    view.contentMode = UIViewContentModeScaleAspectFit;
+    view.frame = CGRectMake(0, 0, 28, 28);
+    self.navigationItem.titleView = view;
 }
 
-@end
-
-@implementation SBGestureSettingsListController
-- (NSArray *)specifiers {
-    self.title = @"SpringBoard Gestures";
-    
-    if (_specifiers == nil) {
-        NSMutableArray *specifiers = [NSMutableArray array];
-        PSSpecifier *spec;
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Left"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:PSListItemsController.class
-                                                cell:PSLinkListCell
-                                                edit:Nil];
-        [spec setProperty:@"SBBottomLeftGesture" forKey:@"key"];
-        [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10, @11]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action", @"快捷面板"]];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Center"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:PSListItemsController.class
-                                                cell:PSLinkListCell
-                                                edit:Nil];
-        [spec setProperty:@"SBBottomCenterGesture" forKey:@"key"];
-        [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10, @11]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action", @"快捷面板"]];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Right"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:PSListItemsController.class
-                                                cell:PSLinkListCell
-                                                edit:Nil];
-        [spec setProperty:@"SBBottomRightGesture" forKey:@"key"];
-        [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10, @11]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action", @"快捷面板"]];
-        [specifiers addObject:spec];
-        
-        _specifiers = [specifiers copy];
-    }
-    return _specifiers;
-}
-@end
-
-@implementation LockGestureSettingsListController
-- (NSArray *)specifiers {
-    self.title = @"LockScreen Gestures";
-    
-    if (_specifiers == nil) {
-        NSMutableArray *specifiers = [NSMutableArray array];
-        PSSpecifier *spec;
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Left"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:PSListItemsController.class
-                                                cell:PSLinkListCell
-                                                edit:Nil];
-        [spec setProperty:@"LBottomLeftGesture" forKey:@"key"];
-        [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @5, @6]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Take Screenshot", @"SecretShot"]];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Center"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:PSListItemsController.class
-                                                cell:PSLinkListCell
-                                                edit:Nil];
-        [spec setProperty:@"LBottomCenterGesture" forKey:@"key"];
-        [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @5, @6]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Take Screenshot", @"SecretShot"]];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Right"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:PSListItemsController.class
-                                                cell:PSLinkListCell
-                                                edit:Nil];
-        [spec setProperty:@"LBottomRightGesture" forKey:@"key"];
-        [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @5, @6]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Take Screenshot", @"SecretShot"]];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier emptyGroupSpecifier];
-        [spec setProperty:@"Allow works while passcode locked?" forKey:@"footerText"];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Enabled when passcode locked"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:Nil
-                                                cell:PSSwitchCell
-                                                edit:Nil];
-        [spec setProperty:@"passcode" forKey:@"key"];
-        [spec setProperty:@NO forKey:@"default"];
-        [spec setProperty:NSClassFromString(@"BCXSwitchTableCell") forKey:@"cellClass"];
-        [spec setProperty:@"No respring is required" forKey:@"cellSubtitleText"];
-        [specifiers addObject:spec];
-        
-        _specifiers = [specifiers copy];
-    }
-    return _specifiers;
-}
-@end
-
-@implementation AppGestureSettingsListController
-- (NSArray *)specifiers {
-    self.title = @"In Apps Gestures";
-    
-    if (_specifiers == nil) {
-        NSMutableArray *specifiers = [NSMutableArray array];
-        PSSpecifier *spec;
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Left"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:PSListItemsController.class
-                                                cell:PSLinkListCell
-                                                edit:Nil];
-        [spec setProperty:@"AppBottomLeftGesture" forKey:@"key"];
-        [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10, @11]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action", @"快捷面板"]];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Center"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:PSListItemsController.class
-                                                cell:PSLinkListCell
-                                                edit:Nil];
-        [spec setProperty:@"AppBottomCenterGesture" forKey:@"key"];
-        [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10, @11]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action", @"快捷面板"]];
-        [specifiers addObject:spec];
-        
-        spec = [PSSpecifier preferenceSpecifierNamed:@"Bottom Right"
-                                              target:self
-                                                 set:@selector(setPreferenceValue:specifier:)
-                                                 get:@selector(readPreferenceValue:)
-                                              detail:PSListItemsController.class
-                                                cell:PSLinkListCell
-                                                edit:Nil];
-        [spec setProperty:@"AppBottomRightGesture" forKey:@"key"];
-        [spec setProperty:@1 forKey:@"default"];
-        [spec setValues:@[@1, @2, @3, @9, @5, @6, @10, @11]
-                 titles:@[@"Home Gesture", @"ControlCenter", @"Lock Device", @"Cover Sheet", @"Take Screenshot", @"SecretShot", @"No Action", @"快捷面板"]];
-        [specifiers addObject:spec];
-        
-        _specifiers = [specifiers copy];
-    }
-    return _specifiers;
-}
 @end

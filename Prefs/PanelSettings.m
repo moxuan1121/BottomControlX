@@ -47,7 +47,7 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
         switch (self.mode) {
             case BCXPickerModeShortcuts: items = BCXShortcuts(); break;
             case BCXPickerModeApps: items = BCXInstalledApps(); break;
-            case BCXPickerModeQuickActions: items = BCXQuickActions(self.bundleID); break;
+            case BCXPickerModeQuickActions: items = BCXRequestQuickActions(self.bundleID); break;
             case BCXPickerModeBuiltins: items = BCXBuiltinActions(); break;
             default: break;
         }
@@ -60,7 +60,7 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
             empty.text = self.mode == BCXPickerModeShortcuts
                 ? @"未读取到快捷指令。请确认“快捷指令”App 中已有指令。"
                 : self.mode == BCXPickerModeQuickActions
-                    ? @"此应用暂无可读取的图标快捷操作。"
+                    ? @"此应用没有可读取的图标快捷操作。请确认 SpringBoard 已运行插件，并尝试长按应用图标查看系统菜单。"
                     : @"没有可用项目";
             self.tableView.backgroundView = items.count ? nil : empty;
             [self.tableView reloadData];
@@ -85,7 +85,7 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (self.mode != BCXPickerModePanel || section != 0) return nil;
-    return @"在桌面或应用内设置一个底部区域为“快捷面板”后，上滑即可打开。锁屏和横屏不显示面板。";
+    return @"在全局上滑手势中将一个区域设为“快捷面板”，竖屏解锁后上滑即可打开。";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)path {

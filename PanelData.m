@@ -97,24 +97,6 @@ NSArray<NSDictionary *> *BCXShortcuts(void) {
     return items;
 }
 
-NSString *BCXShortcutName(NSString *identifier) {
-    if (![identifier isKindOfClass:NSString.class] || !identifier.length) return nil;
-    sqlite3 *db = BCXOpenShortcuts();
-    if (!db) return nil;
-    sqlite3_stmt *stmt = NULL;
-    NSString *name = nil;
-    if (sqlite3_prepare_v2(db, "SELECT ZNAME FROM ZSHORTCUT WHERE ZWORKFLOWID = ? LIMIT 1", -1, &stmt, NULL) == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, identifier.UTF8String, -1, SQLITE_TRANSIENT);
-        if (sqlite3_step(stmt) == SQLITE_ROW) {
-            const char *value = (const char *)sqlite3_column_text(stmt, 0);
-            if (value) name = [NSString stringWithUTF8String:value];
-        }
-    }
-    if (stmt) sqlite3_finalize(stmt);
-    sqlite3_close(db);
-    return name;
-}
-
 NSArray<NSDictionary *> *BCXInstalledApps(void) {
     dlopen("/System/Library/Frameworks/CoreServices.framework/CoreServices", RTLD_LAZY);
     dlopen("/System/Library/Frameworks/MobileCoreServices.framework/MobileCoreServices", RTLD_LAZY);
@@ -141,29 +123,92 @@ NSArray<NSDictionary *> *BCXInstalledApps(void) {
 
 static id BCXShortcutService(void) {
     dlopen("/System/Library/PrivateFrameworks/SpringBoardServices.framework/SpringBoardServices", RTLD_LAZY);
+    UIApplication *application = UIApplication.sharedApplication;
+    SEL current = @selector(shortcutService);
+    if ([application respondsToSelector:current]) {
+        id service = ((id (*)(id, SEL))objc_msgSend)(application, current);
+        if (service) return service;
+    }
     Class serviceClass = NSClassFromString(@"SBSApplicationShortcutService");
     @try { return serviceClass ? [[serviceClass alloc] init] : nil; }
     @catch (NSException *exception) { return nil; }
 }
 
-static NSArray *BCXRawQuickActions(NSString *bundleID) {
+static NSArray *BCXArrayFromFetchResult(id result) {
+    if ([result respondsToSelector:@selector(composedApplicationShortcutItems)])
+        result = ((id (*)(id, SEL))objc_msgSend)(result, @selector(composedApplicationShortcutItems));
+    return [result isKindOfClass:NSArray.class] ? result : @[];
+}
+
+static NSArray *BCXServiceQuickActions(NSString *bundleID) {
     if (![bundleID isKindOfClass:NSString.class] || !bundleID.length) return @[];
     id service = BCXShortcutService();
     SEL selector = @selector(applicationShortcutItemsOfTypes:forBundleIdentifier:);
     if (![service respondsToSelector:selector]) return @[];
     @try {
-        id result = ((id (*)(id, SEL, NSUInteger, id))objc_msgSend)(service, selector, NSUIntegerMax, bundleID);
-        if ([result respondsToSelector:@selector(composedApplicationShortcutItems)])
-            result = ((id (*)(id, SEL))objc_msgSend)(result, @selector(composedApplicationShortcutItems));
-        return [result isKindOfClass:NSArray.class] ? result : @[];
+        return BCXArrayFromFetchResult(((id (*)(id, SEL, NSUInteger, id))objc_msgSend)(service, selector, 3, bundleID));
     } @catch (NSException *exception) {
         return @[];
     }
 }
 
-NSArray<NSDictionary *> *BCXQuickActions(NSString *bundleID) {
+static NSArray *BCXIconQuickActions(id iconView) {
+    if (!iconView) return @[];
+    @try {
+        SEL fetch = @selector(_fetchApplicationShortcutItems);
+        if ([iconView respondsToSelector:fetch]) {
+            NSArray *items = BCXArrayFromFetchResult(((id (*)(id, SEL))objc_msgSend)(iconView, fetch));
+            if (items.count) return items;
+        }
+        SEL current = @selector(applicationShortcutItems);
+        return [iconView respondsToSelector:current]
+            ? BCXArrayFromFetchResult(((id (*)(id, SEL))objc_msgSend)(iconView, current)) : @[];
+    } @catch (NSException *exception) { return @[]; }
+}
+
+static NSArray *BCXStaticQuickActions(NSString *bundleID) {
+    dlopen("/System/Library/Frameworks/MobileCoreServices.framework/MobileCoreServices", RTLD_LAZY);
+    Class workspaceClass = NSClassFromString(@"LSApplicationWorkspace");
+    id workspace = [workspaceClass respondsToSelector:@selector(defaultWorkspace)]
+        ? ((id (*)(id, SEL))objc_msgSend)(workspaceClass, @selector(defaultWorkspace)) : nil;
+    SEL proxySelector = @selector(applicationProxyForIdentifier:);
+    if (![workspace respondsToSelector:proxySelector]) return @[];
+    @try {
+        id proxy = ((id (*)(id, SEL, id))objc_msgSend)(workspace, proxySelector, bundleID);
+        SEL urlSelector = @selector(bundleURL);
+        NSURL *url = [proxy respondsToSelector:urlSelector]
+            ? ((id (*)(id, SEL))objc_msgSend)(proxy, urlSelector) : nil;
+        NSArray *entries = [NSBundle bundleWithURL:url].infoDictionary[@"UIApplicationShortcutItems"];
+        Class itemClass = NSClassFromString(@"SBSApplicationShortcutItem");
+        SEL staticSelector = @selector(_staticApplicationShortcutItemsFromInfoPlistEntry:);
+        if (![entries isKindOfClass:NSArray.class] || ![itemClass respondsToSelector:staticSelector]) return @[];
+        id result = ((id (*)(id, SEL, id))objc_msgSend)(itemClass, staticSelector, entries);
+        return [result isKindOfClass:NSArray.class] ? result : @[];
+    } @catch (NSException *exception) { return @[]; }
+}
+
+static NSArray *BCXRawQuickActions(NSString *bundleID, id iconView) {
+    NSMutableArray *actions = [NSMutableArray array];
+    NSMutableSet *seen = [NSMutableSet set];
+    for (NSArray *source in @[BCXIconQuickActions(iconView), BCXServiceQuickActions(bundleID), BCXStaticQuickActions(bundleID)]) {
+        for (id action in source) {
+            @try {
+                SEL selector = @selector(type);
+                NSString *type = [action respondsToSelector:selector]
+                    ? ((id (*)(id, SEL))objc_msgSend)(action, selector) : nil;
+                if ([type isKindOfClass:NSString.class] && type.length && ![seen containsObject:type]) {
+                    [seen addObject:type];
+                    [actions addObject:action];
+                }
+            } @catch (NSException *exception) { }
+        }
+    }
+    return actions;
+}
+
+NSArray<NSDictionary *> *BCXQuickActionsForIconView(NSString *bundleID, id iconView) {
     NSMutableArray *items = [NSMutableArray array];
-    for (id action in BCXRawQuickActions(bundleID)) {
+    for (id action in BCXRawQuickActions(bundleID, iconView)) {
         @try {
             NSString *type = [action respondsToSelector:@selector(type)]
                 ? ((id (*)(id, SEL))objc_msgSend)(action, @selector(type)) : nil;
@@ -175,8 +220,25 @@ NSArray<NSDictionary *> *BCXQuickActions(NSString *bundleID) {
     return items;
 }
 
-id BCXQuickActionItem(NSString *bundleID, NSString *type) {
-    for (id action in BCXRawQuickActions(bundleID)) {
+NSArray<NSDictionary *> *BCXQuickActions(NSString *bundleID) {
+    return BCXQuickActionsForIconView(bundleID, nil);
+}
+
+NSArray<NSDictionary *> *BCXRequestQuickActions(NSString *bundleID) {
+    if (![bundleID isKindOfClass:NSString.class] || !bundleID.length) return @[];
+    NSString *token = NSUUID.UUID.UUIDString;
+    if (![@{@"token":token, @"app":bundleID} writeToFile:QUICK_IPC_PATH atomically:YES]) return BCXQuickActions(bundleID);
+    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR(Notify_QuickRequest), NULL, NULL, YES);
+    for (NSInteger attempt = 0; attempt < 20; attempt++) {
+        [NSThread sleepForTimeInterval:0.1];
+        NSDictionary *reply = [NSDictionary dictionaryWithContentsOfFile:QUICK_IPC_PATH];
+        if ([reply[@"token"] isEqualToString:token] && [reply[@"actions"] isKindOfClass:NSArray.class]) return reply[@"actions"];
+    }
+    return BCXQuickActions(bundleID);
+}
+
+id BCXQuickActionItem(NSString *bundleID, NSString *type, id iconView) {
+    for (id action in BCXRawQuickActions(bundleID, iconView)) {
         @try {
             if ([action respondsToSelector:@selector(type)] &&
                 [((id (*)(id, SEL))objc_msgSend)(action, @selector(type)) isEqualToString:type]) return action;
