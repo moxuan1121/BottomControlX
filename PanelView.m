@@ -104,7 +104,9 @@ BOOL BCXShowPanel(NSArray<NSDictionary *> *items, void (^runAction)(NSDictionary
         }
     }
     if (!scene) return NO;
-    previousKeyWindow = application.keyWindow;
+    for (UIWindow *window in scene.windows) {
+        if (window.isKeyWindow) { previousKeyWindow = window; break; }
+    }
     panelWindow = [[UIWindow alloc] initWithWindowScene:scene];
     panelWindow.frame = scene.coordinateSpace.bounds;
     panelWindow.windowLevel = UIWindowLevelAlert + 1;

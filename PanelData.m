@@ -127,8 +127,10 @@ NSArray<NSDictionary *> *BCXInstalledApps(void) {
     NSMutableArray *apps = [NSMutableArray array];
     for (id proxy in proxies) {
         @try {
-            NSString *identifier = [proxy applicationIdentifier];
-            NSString *name = [proxy localizedName];
+            NSString *identifier = [proxy respondsToSelector:@selector(applicationIdentifier)]
+                ? ((id (*)(id, SEL))objc_msgSend)(proxy, @selector(applicationIdentifier)) : nil;
+            NSString *name = [proxy respondsToSelector:@selector(localizedName)]
+                ? ((id (*)(id, SEL))objc_msgSend)(proxy, @selector(localizedName)) : nil;
             if (identifier.length && name.length) [apps addObject:@{@"id":identifier, @"title":name}];
         } @catch (NSException *exception) { }
     }
@@ -151,7 +153,8 @@ static NSArray *BCXRawQuickActions(NSString *bundleID) {
     if (![service respondsToSelector:selector]) return @[];
     @try {
         id result = ((id (*)(id, SEL, NSUInteger, id))objc_msgSend)(service, selector, NSUIntegerMax, bundleID);
-        if ([result respondsToSelector:@selector(composedApplicationShortcutItems)]) result = [result composedApplicationShortcutItems];
+        if ([result respondsToSelector:@selector(composedApplicationShortcutItems)])
+            result = ((id (*)(id, SEL))objc_msgSend)(result, @selector(composedApplicationShortcutItems));
         return [result isKindOfClass:NSArray.class] ? result : @[];
     } @catch (NSException *exception) {
         return @[];
@@ -162,8 +165,10 @@ NSArray<NSDictionary *> *BCXQuickActions(NSString *bundleID) {
     NSMutableArray *items = [NSMutableArray array];
     for (id action in BCXRawQuickActions(bundleID)) {
         @try {
-            NSString *type = [action type];
-            NSString *title = [action localizedTitle];
+            NSString *type = [action respondsToSelector:@selector(type)]
+                ? ((id (*)(id, SEL))objc_msgSend)(action, @selector(type)) : nil;
+            NSString *title = [action respondsToSelector:@selector(localizedTitle)]
+                ? ((id (*)(id, SEL))objc_msgSend)(action, @selector(localizedTitle)) : nil;
             if (type.length && title.length) [items addObject:@{@"kind":@"quick", @"id":type, @"app":bundleID, @"title":title}];
         } @catch (NSException *exception) { }
     }
@@ -173,7 +178,8 @@ NSArray<NSDictionary *> *BCXQuickActions(NSString *bundleID) {
 id BCXQuickActionItem(NSString *bundleID, NSString *type) {
     for (id action in BCXRawQuickActions(bundleID)) {
         @try {
-            if ([[action type] isEqualToString:type]) return action;
+            if ([action respondsToSelector:@selector(type)] &&
+                [((id (*)(id, SEL))objc_msgSend)(action, @selector(type)) isEqualToString:type]) return action;
         } @catch (NSException *exception) { }
     }
     return nil;

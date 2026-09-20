@@ -108,7 +108,14 @@ static BOOL BCXIsLocked(void) {
 }
 
 static void BCXAlert(NSString *message) {
-    UIViewController *root = UIApplication.sharedApplication.keyWindow.rootViewController;
+    UIViewController *root = nil;
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+        if (![scene isKindOfClass:UIWindowScene.class] || scene.activationState != UISceneActivationStateForegroundActive) continue;
+        for (UIWindow *window in ((UIWindowScene *)scene).windows) {
+            if (window.isKeyWindow) { root = window.rootViewController; break; }
+        }
+        if (root) break;
+    }
     if (!root) return;
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"快捷面板" message:message preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"知道了" style:UIAlertActionStyleDefault handler:nil]];
