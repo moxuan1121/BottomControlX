@@ -19,7 +19,7 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
 @implementation BCXPanelSettingsController
 
 - (instancetype)init {
-    return [self initWithMode:BCXPickerModePanel bundleID:nil title:@"快捷面板"];
+    return [self initWithMode:BCXPickerModePanel bundleID:nil title:@"上滑动作"];
 }
 
 - (instancetype)initWithMode:(BCXPickerMode)mode bundleID:(NSString *)bundleID title:(NSString *)title {
@@ -80,12 +80,12 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     if (self.mode != BCXPickerModePanel) return nil;
-    return @[@"面板项目：拖动排序，左滑移除", @"添加项目", @"图标尺寸"][section];
+    return @[@"已选动作：拖动排序，左滑移除", @"添加动作", @"面板图标尺寸"][section];
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (self.mode != BCXPickerModePanel || section != 0) return nil;
-    return @"在全局上滑手势中将一个区域设为“快捷面板”，竖屏解锁后上滑即可打开。";
+    return @"一项直接运行；两项或更多自动显示面板。";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)path {
@@ -98,8 +98,8 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
     cell.imageView.tintColor = UIColor.systemBlueColor;
     NSInteger smallIcon = [@[@18, @24, @30][BCXIconSize()] integerValue];
     if (self.mode == BCXPickerModePanel && path.section == 1) {
-        cell.textLabel.text = @[@"快捷指令", @"应用图标快捷操作", @"系统与越狱动作"][path.row];
-        cell.imageView.image = [UIImage systemImageNamed:@[@"square.stack.3d.up", @"app.badge", @"gearshape"][path.row]
+        cell.textLabel.text = @[@"系统与越狱动作", @"快捷指令", @"应用快捷方式"][path.row];
+        cell.imageView.image = [UIImage systemImageNamed:@[@"gearshape", @"square.stack.3d.up", @"app.badge"][path.row]
                                            withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:smallIcon]];
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     } else if (self.mode == BCXPickerModePanel && path.section == 2) {
@@ -126,8 +126,8 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
             return;
         }
         if (path.section != 1) return;
-        BCXPickerMode mode = [@[@(BCXPickerModeShortcuts), @(BCXPickerModeApps), @(BCXPickerModeBuiltins)][path.row] integerValue];
-        NSString *title = @[@"选择快捷指令", @"选择应用", @"选择动作"][path.row];
+        BCXPickerMode mode = [@[@(BCXPickerModeBuiltins), @(BCXPickerModeShortcuts), @(BCXPickerModeApps)][path.row] integerValue];
+        NSString *title = @[@"系统与越狱动作", @"快捷指令", @"应用快捷方式"][path.row];
         [self.navigationController pushViewController:[[BCXPanelSettingsController alloc] initWithMode:mode bundleID:nil title:title] animated:YES];
         return;
     }

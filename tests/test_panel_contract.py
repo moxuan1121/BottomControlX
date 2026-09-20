@@ -10,13 +10,15 @@ data = (root / "PanelData.m").read_text(encoding="utf-8")
 prefs = (root / "Prefs" / "Preference.m").read_text(encoding="utf-8")
 tweak = (root / "Tweak.xm").read_text(encoding="utf-8")
 
-assert prefs.count('key:@"BottomLeftGesture"') == 1
-assert prefs.count('key:@"BottomCenterGesture"') == 1
-assert prefs.count('key:@"BottomRightGesture"') == 1
-assert 'key:@"AppBottom' not in prefs and 'key:@"SBBottom' not in prefs
-assert "case BCX_PANEL_ACTION:" in tweak
-assert tweak.count("BCXClaimsSwipe(normalizedPoint.x)") == 2
-assert 'NSString *name = item[@"title"]' in tweak
+assert 'key:@"BottomLeftGesture"' not in prefs
+assert 'key:@"BottomCenterGesture"' not in prefs
+assert 'key:@"BottomRightGesture"' not in prefs
+assert '选择与排序动作' in prefs
+assert 'activeItems.count > 1' in tweak
+assert 'activeItems.count == 1' in tweak
+assert 'BCXFinishPanel(commit)' in tweak
+assert 'WFSpringBoardWorkflowRunnerClient' in tweak
+assert 'shortcuts://run-shortcut' not in tweak
 
 db = sqlite3.connect(":memory:")
 db.execute("CREATE TABLE ZSHORTCUT (ZWORKFLOWID TEXT, ZNAME TEXT)")

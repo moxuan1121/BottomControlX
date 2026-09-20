@@ -22,6 +22,7 @@
 
 @interface SBFluidSwitcherGestureManager : NSObject
 @property(retain, nonatomic) SBGrabberTongue *deckGrabberTongue;
+- (void)bcx_handleGesture:(UIPanGestureRecognizer *)recognizer;
 @end
 
 @interface SBFluidSwitcherViewController : UIViewController @end

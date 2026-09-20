@@ -4,7 +4,9 @@
 extern "C" {
 #endif
 
-BOOL BCXShowPanel(NSArray<NSDictionary *> *items, void (^runAction)(NSDictionary *item));
+BOOL BCXBeginPanel(NSArray<NSDictionary *> *items, void (^runAction)(NSDictionary *item));
+void BCXUpdatePanel(CGFloat progress);
+void BCXFinishPanel(BOOL show);
 void BCXHidePanel(void);
 
 #ifdef __cplusplus

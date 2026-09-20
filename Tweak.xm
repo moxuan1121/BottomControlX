@@ -6,6 +6,7 @@
 #import <signal.h>
 #import <unistd.h>
 #import <dlfcn.h>
+#import <objc/runtime.h>
 
 #define Home                1
 #define CCC                 2
@@ -17,39 +18,11 @@
 
 static BOOL enable;
 
-static int BottomLeftGesture;
-static int BottomCenterGesture;
-static int BottomRightGesture;
-
-static CGFloat leftValue;
-static CGFloat rightValue;
-static float velocityValue;
-static BOOL lowerSensibility;
 static inline UIInterfaceOrientation getAppOrientation();
-
-static int BCXGestureValue(NSDictionary *prefs, NSString *key, NSString *oldHome, NSString *oldApp) {
-    if (prefs[key]) return [prefs[key] intValue];
-    id home = prefs[oldHome];
-    id app = prefs[oldApp];
-    if (home && [home intValue] != Home) return [home intValue];
-    if (app && [app intValue] != Home) return [app intValue];
-    return Home;
-}
 
 static void settingsChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
     NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
-    
     enable = (BOOL)[dict[@"enable"] ? : @YES boolValue];
-    
-    BottomLeftGesture = BCXGestureValue(dict, @"BottomLeftGesture", @"SBBottomLeftGesture", @"AppBottomLeftGesture");
-    BottomCenterGesture = BCXGestureValue(dict, @"BottomCenterGesture", @"SBBottomCenterGesture", @"AppBottomCenterGesture");
-    BottomRightGesture = BCXGestureValue(dict, @"BottomRightGesture", @"SBBottomRightGesture", @"AppBottomRightGesture");
-    
-    leftValue = (CGFloat)[dict[@"leftValue"] ? : @0.25 doubleValue];
-    rightValue = (CGFloat)[dict[@"rightValue"] ? : @0.75 doubleValue];
-    velocityValue = (float)[dict[@"velocityValue"] ? : @150 floatValue];
-    
-    lowerSensibility = (BOOL)[dict[@"lowerSensibility"] ? : @NO boolValue];
 }
 
 static id gControl = nil;
@@ -197,17 +170,27 @@ static void BCXCloseBackgroundApps(void) {
     }
 }
 
+// iOS 15 VoiceShortcutClient runs the workflow from SpringBoard without opening Shortcuts.
+static BOOL BCXRunShortcut(NSString *identifier) {
+    NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:identifier];
+    if (!uuid) return NO;
+    if (!dlopen("/System/Library/PrivateFrameworks/VoiceShortcutClient.framework/VoiceShortcutClient", RTLD_LAZY)) return NO;
+    Class runnerClass = NSClassFromString(@"WFSpringBoardWorkflowRunnerClient");
+    SEL initializer = @selector(initWithWorkflowIdentifier:);
+    if (![runnerClass instancesRespondToSelector:initializer]) return NO;
+    @try {
+        id runner = ((id (*)(id, SEL, id))objc_msgSend)([runnerClass alloc], initializer, uuid.UUIDString);
+        if (!runner || ![runner respondsToSelector:@selector(start)]) return NO;
+        ((void (*)(id, SEL))objc_msgSend)(runner, @selector(start));
+        return YES;
+    } @catch (NSException *exception) { return NO; }
+}
+
 static void BCXRunPanelItem(NSDictionary *item) {
     NSString *kind = item[@"kind"];
     NSString *identifier = item[@"id"];
     if ([kind isEqualToString:@"shortcut"]) {
-        NSString *name = item[@"title"];
-        if (![name isKindOfClass:NSString.class] || !name.length) return;
-        NSURLComponents *url = [NSURLComponents new];
-        url.scheme = @"shortcuts";
-        url.host = @"run-shortcut";
-        url.queryItems = @[[NSURLQueryItem queryItemWithName:@"name" value:name]];
-        [UIApplication.sharedApplication openURL:url.URL options:@{} completionHandler:nil];
+        if (!BCXRunShortcut(identifier)) BCXAlert(@"无法在后台运行此快捷指令，请在设置中重新选择。");
         return;
     }
     if ([kind isEqualToString:@"quick"]) {
@@ -239,223 +222,71 @@ static void BCXRunPanelItem(NSDictionary *item) {
     }
 }
 
-static BOOL BCXOpenPanel(void) {
-    if (getAppOrientation() != UIInterfaceOrientationPortrait || BCXIsLocked()) return NO;
-    return BCXShowPanel(BCXPanelItems(), ^(NSDictionary *item) { BCXRunPanelItem(item); });
-}
-
-typedef NS_ENUM(NSInteger, GestureZone) {
-    GestureZoneLeft,
-    GestureZoneCenter,
-    GestureZoneRight
-};
-
-// Get the exact orientation of the foreground app
 static inline UIInterfaceOrientation getAppOrientation() {
-    SpringBoard *sb = (SpringBoard *)[UIApplication sharedApplication];
+    SpringBoard *sb = (SpringBoard *)UIApplication.sharedApplication;
     if ([sb respondsToSelector:@selector(_frontMostAppOrientation)]) {
-        int ori = [sb _frontMostAppOrientation];
-        if (ori > 0) return (UIInterfaceOrientation)ori;
+        int orientation = [sb _frontMostAppOrientation];
+        if (orientation > 0) return (UIInterfaceOrientation)orientation;
     }
-    return [UIApplication sharedApplication].activeInterfaceOrientation;
+    return UIApplication.sharedApplication.activeInterfaceOrientation;
 }
 
-static inline BOOL isValidUpwardSwipe(CGPoint v, CGFloat minAngleDegrees) {
-    if (v.y >= 0) return NO; // Reject anything other than the upward direction (v.y < 0)
-    CGFloat swipeAngle = fabs(atan2(v.y, v.x) - (-M_PI_2));
-    CGFloat maxAllowedDeviation = (90.0f - minAngleDegrees) * (M_PI / 180.0f);
-    return swipeAngle <= maxAllowedDeviation;
-}
+static __weak UIPanGestureRecognizer *activeRecognizer;
+static NSArray<NSDictionary *> *activeItems;
 
-// Normalization of Points
-static inline CGPoint getNormalizedPoint(CGPoint point, UIInterfaceOrientation orientation, CGSize portraitSize) {
-    switch (orientation) {
-        case UIInterfaceOrientationLandscapeRight:
-            // 3: right dock
-            return CGPointMake(point.y, portraitSize.width - point.x);
-        case UIInterfaceOrientationLandscapeLeft:
-            // 4: left dock
-            return CGPointMake(portraitSize.height - point.y, point.x);
-        case UIInterfaceOrientationPortraitUpsideDown:
-            // 2: up dock
-            return CGPointMake(portraitSize.width - point.x, portraitSize.height - point.y);
-        case UIInterfaceOrientationPortrait:
-            // 1: portrait
-        default:
-            return point;
+static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
+    if (!enable || getAppOrientation() != UIInterfaceOrientationPortrait || BCXIsLocked()) return NO;
+    NSArray *items = BCXPanelItems();
+    if (!items.count) return NO;
+    UIPanGestureRecognizer *recognizer = nil;
+    @try { recognizer = [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"]; }
+    @catch (NSException *exception) { return NO; }
+    if (![recognizer isKindOfClass:UIPanGestureRecognizer.class]) return NO;
+    if (activeRecognizer != recognizer) {
+        activeRecognizer = recognizer;
+        activeItems = items;
+        [recognizer addTarget:manager action:@selector(bcx_handleGesture:)];
+        if (items.count > 1) {
+            if (!BCXBeginPanel(items, ^(NSDictionary *item) { BCXRunPanelItem(item); })) {
+                [recognizer removeTarget:manager action:@selector(bcx_handleGesture:)];
+                activeRecognizer = nil;
+                activeItems = nil;
+                return NO;
+            }
+        }
     }
+    return YES;
 }
-// Normalization of the velocity vector
-static inline CGPoint getNormalizedVelocity(CGPoint v, UIInterfaceOrientation orientation) {
-    switch (orientation) {
-        case UIInterfaceOrientationLandscapeRight:
-            // A swipe from bottom to top (in the negative Y direction on the screen) corresponds to the positive X direction in Portrait mode
-            return CGPointMake(v.y, -v.x);
-
-        case UIInterfaceOrientationLandscapeLeft:
-            // Swiping from bottom to top corresponds to the negative X direction in Portrait mode
-            return CGPointMake(-v.y, v.x);
-
-        case UIInterfaceOrientationPortraitUpsideDown:
-            return CGPointMake(-v.x, -v.y);
-
-        case UIInterfaceOrientationPortrait:
-        default:
-            return v;
-    }
-}
-// Zone determination based on ratios
-static inline GestureZone getZoneByRatio(CGFloat touchX, CGFloat screenWidth) {
-    if (touchX <= screenWidth * leftValue) {
-        return GestureZoneLeft;
-    } else if (touchX <= screenWidth * rightValue) {
-        return GestureZoneCenter;
-    }
-    return GestureZoneRight;
-}
-
-static BOOL BCXClaimsSwipe(CGFloat touchX) {
-    CGFloat width = fmin(UIScreen.mainScreen.bounds.size.width, UIScreen.mainScreen.bounds.size.height);
-    GestureZone zone = getZoneByRatio(touchX, width);
-    int action = zone == GestureZoneLeft ? BottomLeftGesture
-        : zone == GestureZoneCenter ? BottomCenterGesture : BottomRightGesture;
-    return action != Home && !(action == BCX_PANEL_ACTION && BCXIsLocked());
-}
-
-inline int handleSwipeUpGesture(CGFloat startPointX, int leftAction, int centerAction, int rightAction, CGPoint velocity = CGPointMake(1, -6)) {
-    if (!isValidUpwardSwipe(velocity, 67.5f)) {
-        return 0;
-    }
-
-    UIInterfaceOrientation orientation = getAppOrientation();
-    CGRect mainBounds = [UIScreen mainScreen].bounds;
-    
-    CGFloat currentWidth = UIInterfaceOrientationIsLandscape(orientation)
-                           ? fmax(mainBounds.size.width, mainBounds.size.height)
-                           : fmin(mainBounds.size.width, mainBounds.size.height);
-
-    GestureZone zone = getZoneByRatio(startPointX, currentWidth);
-    int targetAction = (zone == GestureZoneLeft)   ? leftAction
-                     : (zone == GestureZoneCenter) ? centerAction
-                                                   : rightAction;
-
-    switch (targetAction) {
-        case BCX_PANEL_ACTION:
-            return BCXOpenPanel() ? 1 : 0;
-        case CCC:
-            showControlCenter();
-            return 1;
-        case Lock:
-            [(SpringBoard *)[UIApplication sharedApplication] _simulateLockButtonPress];
-            return 1;
-        case CS:
-            [[%c(SBCoverSheetPresentationManager) sharedInstance] setCoverSheetPresented:YES animated:YES withCompletion:nil];
-            return 1;
-        case ScreenShot:
-            [(SpringBoard *)[UIApplication sharedApplication] takeScreenshot];
-            return 1;
-        case SecretShot:
-            takeScreenshotAndSave();
-            return 1;
-        case NoAction:
-            return -1;
-        case Home:
-        default:
-            return 0;
-    }
-}
-
-// handle fluid gesture
-static BOOL isFluidGestureTriggered = NO;
 
 %hook SBFluidSwitcherGestureManager
-// iOS 11 - 13.x
-// https://developer.limneos.net/?ios=11.1.2&framework=SpringBoard&header=SBFluidSwitcherGestureManager.h
-- (void)grabberTongueBeganPulling:(id)arg1 withDistance:(double)arg2 andVelocity:(double)arg3 {
-    if (!enable || getAppOrientation() != UIInterfaceOrientationPortrait || BCXIsLocked()) {
-        %orig;
-        return;
-    }
 
-    UIPanGestureRecognizer *recognizer = [self.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"];
-    
-    if (recognizer.state == UIGestureRecognizerStateBegan) {
-        isFluidGestureTriggered = NO;
-    }
-
-    if (isFluidGestureTriggered) {
-        return;
-    }
-
-    UIView *container = [self.deckGrabberTongue valueForKey:@"_tongueContainer"];
-    CGPoint rawPoint = [recognizer locationInView:container];
-    CGPoint rawVelocity = [recognizer velocityInView:container];
-
-    UIInterfaceOrientation orientation = getAppOrientation();
-    
-    // Since the `bounds` may already be rotated depending on the iOS version, ensure the dimensions correspond to Portrait orientation
-    CGSize screenSize = [UIScreen mainScreen].bounds.size;
-    CGSize portraitSize = CGSizeMake(fmin(screenSize.width, screenSize.height), fmax(screenSize.width, screenSize.height));
-
-    CGPoint normalizedPoint = getNormalizedPoint(rawPoint, orientation, portraitSize);
-    CGPoint normalizedVelocity = getNormalizedVelocity(rawVelocity, orientation);
-    
-    int result = (lowerSensibility && arg3 <= velocityValue) ? 0
-        : handleSwipeUpGesture(normalizedPoint.x, BottomLeftGesture, BottomCenterGesture, BottomRightGesture, normalizedVelocity);
-
-    if (result != 0) {
-        isFluidGestureTriggered = YES;
-        return;
-    } else if (BCXClaimsSwipe(normalizedPoint.x)) {
-        return;
-    } else {
-        %orig;
+%new
+- (void)bcx_handleGesture:(UIPanGestureRecognizer *)recognizer {
+    if (activeRecognizer != recognizer) return;
+    UIGestureRecognizerState state = recognizer.state;
+    CGFloat distance = MAX(0, -[recognizer translationInView:nil].y);
+    if (state == UIGestureRecognizerStateChanged || state == UIGestureRecognizerStateBegan) {
+        if (activeItems.count > 1) BCXUpdatePanel(distance / 180.0);
+    } else if (state == UIGestureRecognizerStateEnded ||
+               state == UIGestureRecognizerStateCancelled ||
+               state == UIGestureRecognizerStateFailed) {
+        BOOL commit = state == UIGestureRecognizerStateEnded && distance >= 80;
+        if (activeItems.count > 1) BCXFinishPanel(commit);
+        else if (commit && activeItems.count == 1) BCXRunPanelItem(activeItems.firstObject);
+        [recognizer removeTarget:self action:@selector(bcx_handleGesture:)];
+        activeRecognizer = nil;
+        activeItems = nil;
     }
 }
-// iOS 13.4? or laetr
+
+- (void)grabberTongueBeganPulling:(id)arg1 withDistance:(double)arg2 andVelocity:(double)arg3 {
+    if (!BCXBeginSwipe(self)) %orig;
+}
+
 - (void)grabberTongueBeganPulling:(id)arg1 withDistance:(double)arg2 andVelocity:(double)arg3 andGesture:(id)arg4 {
-    if (!enable || getAppOrientation() != UIInterfaceOrientationPortrait || BCXIsLocked()) {
-        %orig;
-        return;
-    }
-
-    UIPanGestureRecognizer *recognizer = [self.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"];
-    
-    if (recognizer.state == UIGestureRecognizerStateBegan) {
-        isFluidGestureTriggered = NO;
-    }
-
-    if (isFluidGestureTriggered) {
-        return;
-    }
-
-    UIView *container = [self.deckGrabberTongue valueForKey:@"_tongueContainer"];
-    CGPoint rawPoint = [recognizer locationInView:container];
-    CGPoint rawVelocity = [recognizer velocityInView:container];
-
-    UIInterfaceOrientation orientation = getAppOrientation();
-    
-    // Since the `bounds` may already be rotated depending on the iOS version, ensure the dimensions correspond to Portrait orientation
-    CGSize screenSize = [UIScreen mainScreen].bounds.size;
-    CGSize portraitSize = CGSizeMake(fmin(screenSize.width, screenSize.height), fmax(screenSize.width, screenSize.height));
-
-    CGPoint normalizedPoint = getNormalizedPoint(rawPoint, orientation, portraitSize);
-    CGPoint normalizedVelocity = getNormalizedVelocity(rawVelocity, orientation);
-    
-    int result = (lowerSensibility && arg3 <= velocityValue) ? 0
-        : handleSwipeUpGesture(normalizedPoint.x, BottomLeftGesture, BottomCenterGesture, BottomRightGesture, normalizedVelocity);
-
-    if (result != 0) {
-        isFluidGestureTriggered = YES;
-        return;
-    } else if (BCXClaimsSwipe(normalizedPoint.x)) {
-        return;
-    } else {
-        %orig;
-    }
+    if (!BCXBeginSwipe(self)) %orig;
 }
 %end
-
 %ctor {
     %init;
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL,

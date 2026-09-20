@@ -8,29 +8,38 @@ static __weak UIWindow *previousKeyWindow;
 @interface BCXPanelController : UIViewController
 @property(nonatomic, copy) NSArray<NSDictionary *> *items;
 @property(nonatomic, copy) void (^runAction)(NSDictionary *item);
+@property(nonatomic, strong) UIView *sheet;
+@property(nonatomic, strong) UIControl *shade;
+- (void)setRevealProgress:(CGFloat)progress;
 @end
 
 @implementation BCXPanelController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor colorWithWhite:0 alpha:0.28];
+    self.view.backgroundColor = UIColor.clearColor;
     UIControl *shade = [[UIControl alloc] initWithFrame:self.view.bounds];
+    shade.backgroundColor = [UIColor colorWithWhite:0 alpha:0.28];
     shade.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [shade addTarget:self action:@selector(close) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:shade];
+    self.shade = shade;
 
     CGFloat width = self.view.bounds.size.width;
     CGFloat safeBottom = self.view.safeAreaInsets.bottom ?: 24;
     NSInteger rows = MAX(1, (self.items.count + 3) / 4);
     CGFloat height = MIN(self.view.bounds.size.height * 0.68, 65 + rows * 102 + safeBottom);
     UIView *sheet = [[UIView alloc] initWithFrame:CGRectMake(0, self.view.bounds.size.height - height, width, height)];
-    sheet.backgroundColor = UIColor.secondarySystemGroupedBackgroundColor;
+    UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemChromeMaterial]];
+    blur.frame = sheet.bounds;
+    blur.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [sheet addSubview:blur];
     sheet.layer.cornerRadius = 26;
     sheet.layer.maskedCorners = kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner;
     sheet.clipsToBounds = YES;
     sheet.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
     [self.view addSubview:sheet];
+    self.sheet = sheet;
 
     UILabel *heading = [[UILabel alloc] initWithFrame:CGRectMake(20, 18, width - 40, 30)];
     heading.text = @"快捷面板";
@@ -76,6 +85,13 @@ static __weak UIWindow *previousKeyWindow;
     scroll.contentSize = CGSizeMake(width, rows * 102 + safeBottom);
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dragDown:)];
     [sheet addGestureRecognizer:pan];
+    [self setRevealProgress:0];
+}
+
+- (void)setRevealProgress:(CGFloat)progress {
+    progress = MAX(0, MIN(1, progress));
+    self.shade.alpha = progress;
+    self.sheet.transform = CGAffineTransformMakeTranslation(0, self.sheet.bounds.size.height * (1 - progress));
 }
 
 - (void)close { BCXHidePanel(); }
@@ -93,7 +109,7 @@ static __weak UIWindow *previousKeyWindow;
 
 @end
 
-BOOL BCXShowPanel(NSArray<NSDictionary *> *items, void (^runAction)(NSDictionary *item)) {
+BOOL BCXBeginPanel(NSArray<NSDictionary *> *items, void (^runAction)(NSDictionary *item)) {
     if (panelWindow) return YES;
     UIApplication *application = UIApplication.sharedApplication;
     UIWindowScene *scene = nil;
@@ -114,8 +130,27 @@ BOOL BCXShowPanel(NSArray<NSDictionary *> *items, void (^runAction)(NSDictionary
     controller.items = items;
     controller.runAction = runAction;
     panelWindow.rootViewController = controller;
-    [panelWindow makeKeyAndVisible];
+    panelWindow.hidden = NO;
+    panelWindow.userInteractionEnabled = NO;
     return YES;
+}
+
+void BCXUpdatePanel(CGFloat progress) {
+    if (!panelWindow) return;
+    [(BCXPanelController *)panelWindow.rootViewController setRevealProgress:progress];
+}
+
+void BCXFinishPanel(BOOL show) {
+    if (!panelWindow) return;
+    if (show) {
+        [panelWindow makeKeyWindow];
+        panelWindow.userInteractionEnabled = YES;
+    }
+    [UIView animateWithDuration:0.38 delay:0 usingSpringWithDamping:0.84 initialSpringVelocity:0 options:UIViewAnimationOptionBeginFromCurrentState animations:^{
+        [(BCXPanelController *)panelWindow.rootViewController setRevealProgress:show ? 1 : 0];
+    } completion:^(BOOL finished) {
+        if (!show) BCXHidePanel();
+    }];
 }
 
 void BCXHidePanel(void) {
