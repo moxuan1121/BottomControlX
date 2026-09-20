@@ -244,18 +244,46 @@ static NSArray *BCXRawQuickActions(NSString *bundleID, id iconView) {
     return actions;
 }
 
-NSArray<NSDictionary *> *BCXQuickActionsForIconView(NSString *bundleID, id iconView) {
+static NSArray<NSDictionary *> *BCXQuickActionDictionaries(NSArray *actions, NSString *bundleID) {
     NSMutableArray *items = [NSMutableArray array];
-    for (id action in BCXRawQuickActions(bundleID, iconView)) {
+    NSMutableSet *seen = [NSMutableSet set];
+    for (id action in actions) {
         @try {
             NSString *type = [action respondsToSelector:@selector(type)]
                 ? ((id (*)(id, SEL))objc_msgSend)(action, @selector(type)) : nil;
             NSString *title = [action respondsToSelector:@selector(localizedTitle)]
                 ? ((id (*)(id, SEL))objc_msgSend)(action, @selector(localizedTitle)) : nil;
-            if (type.length && title.length) [items addObject:@{@"kind":@"quick", @"id":type, @"app":bundleID, @"title":title}];
+            if (type.length && title.length && ![seen containsObject:type]) {
+                [seen addObject:type];
+                [items addObject:@{@"kind":@"quick", @"id":type, @"app":bundleID, @"title":title}];
+            }
         } @catch (NSException *exception) { }
     }
     return items;
+}
+
+NSArray<NSDictionary *> *BCXQuickActionsForIconView(NSString *bundleID, id iconView) {
+    return BCXQuickActionDictionaries(BCXRawQuickActions(bundleID, iconView), bundleID);
+}
+
+void BCXFetchQuickActions(NSString *bundleID, id iconView, void (^completion)(NSArray<NSDictionary *> *items)) {
+    id service = BCXShortcutService();
+    SEL fetch = @selector(fetchApplicationShortcutItemsOfTypes:forBundleIdentifier:withCompletionHandler:);
+    if (![service respondsToSelector:fetch]) {
+        completion(BCXQuickActionsForIconView(bundleID, iconView));
+        return;
+    }
+    @try {
+        ((void (*)(id, SEL, NSUInteger, id, id))objc_msgSend)(service, fetch, 3, bundleID, ^(id result) {
+            NSArray *fetched = BCXArrayFromFetchResult(result);
+            NSMutableArray *all = [fetched mutableCopy];
+            for (id action in BCXRawQuickActions(bundleID, iconView)) if (![all containsObject:action]) [all addObject:action];
+            NSArray *items = BCXQuickActionDictionaries(all, bundleID);
+            dispatch_async(dispatch_get_main_queue(), ^{ completion(items); });
+        });
+    } @catch (NSException *exception) {
+        completion(BCXQuickActionsForIconView(bundleID, iconView));
+    }
 }
 
 NSArray<NSDictionary *> *BCXQuickActions(NSString *bundleID) {
@@ -267,7 +295,7 @@ NSArray<NSDictionary *> *BCXRequestQuickActions(NSString *bundleID) {
     NSString *token = NSUUID.UUID.UUIDString;
     if (![@{@"token":token, @"app":bundleID} writeToFile:QUICK_IPC_PATH atomically:YES]) return BCXQuickActions(bundleID);
     CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR(Notify_QuickRequest), NULL, NULL, YES);
-    for (NSInteger attempt = 0; attempt < 20; attempt++) {
+    for (NSInteger attempt = 0; attempt < 60; attempt++) {
         [NSThread sleepForTimeInterval:0.1];
         NSDictionary *reply = [NSDictionary dictionaryWithContentsOfFile:QUICK_IPC_PATH];
         if ([reply[@"token"] isEqualToString:token] && [reply[@"actions"] isKindOfClass:NSArray.class]) return reply[@"actions"];

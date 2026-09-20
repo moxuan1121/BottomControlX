@@ -25,6 +25,8 @@ assert 'BCXRebootUserspace()' in tweak and '"reboot_userspace"' in tweak
 assert 'customSymbol' in data and 'customImage' in data
 assert '_applicationIconImageForBundleIdentifier' in data
 assert '_fetchApplicationShortcutItemsIfAppropriate' in data
+assert 'fetchApplicationShortcutItemsOfTypes:forBundleIdentifier:withCompletionHandler:' in data
+assert 'for (NSInteger attempt = 0; attempt < 60; attempt++)' in data
 
 db = sqlite3.connect(":memory:")
 db.execute("CREATE TABLE ZSHORTCUT (ZWORKFLOWID TEXT, ZNAME TEXT)")

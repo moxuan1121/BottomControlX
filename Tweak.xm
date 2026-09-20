@@ -138,8 +138,17 @@ static void BCXQuickRequestReceived(CFNotificationCenterRef center, void *observ
         NSString *token = request[@"token"];
         NSString *bundleID = request[@"app"];
         if (![token isKindOfClass:NSString.class] || ![bundleID isKindOfClass:NSString.class]) return;
-        NSArray *actions = BCXQuickActionsForIconView(bundleID, BCXIconViewForBundleID(bundleID));
-        [@{@"token":token, @"actions":actions} writeToFile:QUICK_IPC_PATH atomically:YES];
+        id iconView = BCXIconViewForBundleID(bundleID);
+        __block BOOL replied = NO;
+        void (^reply)(NSArray *) = ^(NSArray *actions) {
+            if (replied) return;
+            replied = YES;
+            [@{@"token":token, @"actions":actions ?: @[]} writeToFile:QUICK_IPC_PATH atomically:YES];
+        };
+        BCXFetchQuickActions(bundleID, iconView, reply);
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 4 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            reply(BCXQuickActionsForIconView(bundleID, iconView));
+        });
     });
 }
 
