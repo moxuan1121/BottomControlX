@@ -1,4 +1,5 @@
 #import <UIKit/UIKit.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "../PanelData.h"
 
 typedef NS_ENUM(NSInteger, BCXPickerMode) {
@@ -238,7 +239,7 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
 }
 
 - (void)pickImage {
-    UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initWithDocumentTypes:@[@"public.image"] inMode:UIDocumentPickerModeImport];
+    UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTType.image] asCopy:YES];
     picker.delegate = self;
     [self presentViewController:picker animated:YES completion:nil];
 }
