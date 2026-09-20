@@ -266,7 +266,7 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
     UIGestureRecognizerState state = recognizer.state;
     CGFloat distance = MAX(0, -[recognizer translationInView:nil].y);
     if (state == UIGestureRecognizerStateChanged || state == UIGestureRecognizerStateBegan) {
-        if (activeItems.count > 1) BCXUpdatePanel(distance / 180.0);
+        if (activeItems.count > 1) BCXUpdatePanel(distance);
     } else if (state == UIGestureRecognizerStateEnded ||
                state == UIGestureRecognizerStateCancelled ||
                state == UIGestureRecognizerStateFailed) {

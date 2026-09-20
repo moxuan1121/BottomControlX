@@ -135,9 +135,10 @@ BOOL BCXBeginPanel(NSArray<NSDictionary *> *items, void (^runAction)(NSDictionar
     return YES;
 }
 
-void BCXUpdatePanel(CGFloat progress) {
+void BCXUpdatePanel(CGFloat dragDistance) {
     if (!panelWindow) return;
-    [(BCXPanelController *)panelWindow.rootViewController setRevealProgress:progress];
+    BCXPanelController *controller = (BCXPanelController *)panelWindow.rootViewController;
+    [controller setRevealProgress:dragDistance / controller.sheet.bounds.size.height];
 }
 
 void BCXFinishPanel(BOOL show) {

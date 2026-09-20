@@ -5,7 +5,7 @@ extern "C" {
 #endif
 
 BOOL BCXBeginPanel(NSArray<NSDictionary *> *items, void (^runAction)(NSDictionary *item));
-void BCXUpdatePanel(CGFloat progress);
+void BCXUpdatePanel(CGFloat dragDistance);
 void BCXFinishPanel(BOOL show);
 void BCXHidePanel(void);
 
