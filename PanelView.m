@@ -27,8 +27,10 @@ static __weak UIWindow *previousKeyWindow;
 
     CGFloat width = self.view.bounds.size.width;
     CGFloat safeBottom = self.view.safeAreaInsets.bottom ?: 24;
+    CGFloat iconSize = BCXIconSize();
+    CGFloat cellHeight = iconSize + 58;
     NSInteger rows = MAX(1, (self.items.count + 3) / 4);
-    CGFloat height = MIN(self.view.bounds.size.height * 0.68, 65 + rows * 102 + safeBottom);
+    CGFloat height = MIN(self.view.bounds.size.height * 0.68, 65 + rows * cellHeight + safeBottom);
     UIView *sheet = [[UIView alloc] initWithFrame:CGRectMake(0, self.view.bounds.size.height - height, width, height)];
     UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemChromeMaterial]];
     blur.frame = sheet.bounds;
@@ -50,7 +52,6 @@ static __weak UIWindow *previousKeyWindow;
     scroll.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [sheet addSubview:scroll];
     CGFloat cellWidth = width / 4;
-    CGFloat iconSize = [@[@32, @40, @48][BCXIconSize()] doubleValue];
     if (!self.items.count) {
         UILabel *empty = [[UILabel alloc] initWithFrame:CGRectMake(20, 40, width - 40, 100)];
         empty.text = @"请先在 BottomControlX 设置中添加面板项目";
@@ -61,20 +62,19 @@ static __weak UIWindow *previousKeyWindow;
     }
     for (NSInteger i = 0; i < self.items.count; i++) {
         NSDictionary *item = self.items[i];
-        UIControl *tile = [[UIControl alloc] initWithFrame:CGRectMake((i % 4) * cellWidth, (i / 4) * 102, cellWidth, 102)];
+        UIControl *tile = [[UIControl alloc] initWithFrame:CGRectMake((i % 4) * cellWidth, (i / 4) * cellHeight, cellWidth, cellHeight)];
         tile.tag = i;
         [tile addTarget:self action:@selector(choose:) forControlEvents:UIControlEventTouchUpInside];
         tile.isAccessibilityElement = YES;
         tile.accessibilityTraits = UIAccessibilityTraitButton;
         tile.accessibilityLabel = item[@"title"];
-        UIImage *symbol = [UIImage systemImageNamed:BCXSymbol(item)
-                                withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:iconSize weight:UIImageSymbolWeightRegular]];
+        UIImage *symbol = BCXItemImage(item, iconSize);
         UIImageView *icon = [[UIImageView alloc] initWithImage:symbol];
         icon.tintColor = UIColor.labelColor;
         icon.contentMode = UIViewContentModeScaleAspectFit;
         icon.frame = CGRectMake((cellWidth - iconSize) / 2, 8, iconSize, iconSize);
         [tile addSubview:icon];
-        UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(4, 61, cellWidth - 8, 34)];
+        UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(4, 14 + iconSize, cellWidth - 8, 38)];
         label.text = item[@"title"];
         label.textAlignment = NSTextAlignmentCenter;
         label.numberOfLines = 2;
@@ -82,7 +82,7 @@ static __weak UIWindow *previousKeyWindow;
         [tile addSubview:label];
         [scroll addSubview:tile];
     }
-    scroll.contentSize = CGSizeMake(width, rows * 102 + safeBottom);
+    scroll.contentSize = CGSizeMake(width, rows * cellHeight + safeBottom);
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dragDown:)];
     [sheet addGestureRecognizer:pan];
     [self setRevealProgress:0];

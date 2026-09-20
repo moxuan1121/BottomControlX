@@ -11,7 +11,13 @@ static NSDictionary *BCXPreferences(void) {
 }
 
 NSArray<NSDictionary *> *BCXPanelItems(void) {
-    id items = BCXPreferences()[BCX_PANEL_ITEMS];
+    return BCXPanelItemsForKey(BCX_CENTER_ITEMS);
+}
+
+NSArray<NSDictionary *> *BCXPanelItemsForKey(NSString *key) {
+    NSDictionary *prefs = BCXPreferences();
+    id items = prefs[key];
+    if (!items && [key isEqualToString:BCX_CENTER_ITEMS]) items = prefs[BCX_PANEL_ITEMS];
     if (![items isKindOfClass:NSArray.class]) return @[];
     NSMutableArray *valid = [NSMutableArray array];
     for (id item in items) {
@@ -24,21 +30,25 @@ NSArray<NSDictionary *> *BCXPanelItems(void) {
 }
 
 void BCXSavePanelItems(NSArray<NSDictionary *> *items) {
+    BCXSavePanelItemsForKey(BCX_CENTER_ITEMS, items);
+}
+
+void BCXSavePanelItemsForKey(NSString *key, NSArray<NSDictionary *> *items) {
     NSMutableDictionary *prefs = [BCXPreferences() mutableCopy];
-    prefs[BCX_PANEL_ITEMS] = items;
+    prefs[key] = items;
     if ([prefs writeToFile:PREF_PATH atomically:YES]) {
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR(Notify_Preferences), NULL, NULL, YES);
     }
 }
 
-NSInteger BCXIconSize(void) {
-    NSInteger size = [BCXPreferences()[BCX_ICON_SIZE] integerValue];
-    return MAX(0, MIN(2, size));
+CGFloat BCXIconSize(void) {
+    CGFloat size = [BCXPreferences()[BCX_ICON_SIZE] doubleValue];
+    return size >= 20 ? MIN(64, size) : 40;
 }
 
-void BCXSetIconSize(NSInteger size) {
+void BCXSetIconSize(CGFloat size) {
     NSMutableDictionary *prefs = [BCXPreferences() mutableCopy];
-    prefs[BCX_ICON_SIZE] = @(MAX(0, MIN(2, size)));
+    prefs[BCX_ICON_SIZE] = @(MAX(20, MIN(64, size)));
     if ([prefs writeToFile:PREF_PATH atomically:YES]) {
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR(Notify_Preferences), NULL, NULL, YES);
     }
@@ -59,10 +69,30 @@ NSArray<NSDictionary *> *BCXBuiltinActions(void) {
 }
 
 NSString *BCXSymbol(NSDictionary *item) {
+    NSString *custom = item[@"customSymbol"];
+    if ([custom isKindOfClass:NSString.class] && custom.length && [UIImage systemImageNamed:custom]) return custom;
     NSString *kind = item[@"kind"];
     if ([kind isEqualToString:@"shortcut"]) return @"square.stack.3d.up";
     if ([kind isEqualToString:@"quick"]) return @"app.badge";
     return [item[@"symbol"] isKindOfClass:NSString.class] ? item[@"symbol"] : @"square.grid.2x2";
+}
+
+UIImage *BCXItemImage(NSDictionary *item, CGFloat size) {
+    NSData *data = item[@"customImage"];
+    UIImage *image = [data isKindOfClass:NSData.class] ? [UIImage imageWithData:data] : nil;
+    if (image) return image;
+    return [UIImage systemImageNamed:BCXSymbol(item)
+        withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:size weight:UIImageSymbolWeightRegular]];
+}
+
+@interface UIImage (BCXApplicationIcon)
++ (UIImage *)_applicationIconImageForBundleIdentifier:(NSString *)bundleID format:(NSInteger)format scale:(CGFloat)scale;
+@end
+
+UIImage *BCXApplicationIcon(NSString *bundleID) {
+    @try {
+        return [UIImage _applicationIconImageForBundleIdentifier:bundleID format:2 scale:UIScreen.mainScreen.scale];
+    } @catch (NSException *exception) { return nil; }
 }
 
 // Read only: Shortcut storage belongs to the Shortcuts app. Unknown schemas return an empty list.
@@ -123,6 +153,11 @@ NSArray<NSDictionary *> *BCXInstalledApps(void) {
 
 static id BCXShortcutService(void) {
     dlopen("/System/Library/PrivateFrameworks/SpringBoardServices.framework/SpringBoardServices", RTLD_LAZY);
+    Class iconViewClass = NSClassFromString(@"SBIconView");
+    if ([iconViewClass respondsToSelector:@selector(applicationShortcutService)]) {
+        id service = ((id (*)(id, SEL))objc_msgSend)(iconViewClass, @selector(applicationShortcutService));
+        if (service) return service;
+    }
     UIApplication *application = UIApplication.sharedApplication;
     SEL current = @selector(shortcutService);
     if ([application respondsToSelector:current]) {
@@ -155,9 +190,12 @@ static NSArray *BCXServiceQuickActions(NSString *bundleID) {
 static NSArray *BCXIconQuickActions(id iconView) {
     if (!iconView) return @[];
     @try {
-        SEL fetch = @selector(_fetchApplicationShortcutItems);
+        SEL fetch = @selector(_fetchApplicationShortcutItemsIfAppropriate);
         if ([iconView respondsToSelector:fetch]) {
-            NSArray *items = BCXArrayFromFetchResult(((id (*)(id, SEL))objc_msgSend)(iconView, fetch));
+            ((void (*)(id, SEL))objc_msgSend)(iconView, fetch);
+            SEL effective = @selector(effectiveApplicationShortcutItems);
+            NSArray *items = [iconView respondsToSelector:effective]
+                ? BCXArrayFromFetchResult(((id (*)(id, SEL))objc_msgSend)(iconView, effective)) : @[];
             if (items.count) return items;
         }
         SEL current = @selector(applicationShortcutItems);

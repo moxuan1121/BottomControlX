@@ -5,6 +5,7 @@
 #import <spawn.h>
 #import <signal.h>
 #import <unistd.h>
+#import <sys/wait.h>
 #import <dlfcn.h>
 #import <objc/runtime.h>
 
@@ -17,12 +18,16 @@
 #define NoAction            10
 
 static BOOL enable;
+static CGFloat leftValue;
+static CGFloat rightWidth;
 
 static inline UIInterfaceOrientation getAppOrientation();
 
 static void settingsChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
     NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
     enable = (BOOL)[dict[@"enable"] ? : @YES boolValue];
+    leftValue = (CGFloat)[dict[@"leftValue"] ? : @0.25 doubleValue];
+    rightWidth = (CGFloat)[dict[@"rightWidth"] ? : @0.25 doubleValue];
 }
 
 static id gControl = nil;
@@ -85,6 +90,20 @@ static BOOL BCXSpawn(NSString *program, NSString *argument) {
     return posix_spawn(&pid, path, NULL, NULL, argv, environ) == 0;
 }
 
+static BOOL BCXRebootUserspace(void) {
+    const char *jbctl = jbroot("/basebin/jbctl");
+    pid_t pid = 0;
+    char *argv[] = {(char *)jbctl, "reboot_userspace", NULL};
+    extern char **environ;
+    if (access(jbctl, X_OK) == 0 && posix_spawn(&pid, jbctl, NULL, NULL, argv, environ) == 0) {
+        int status = 0;
+        if (waitpid(pid, &status, 0) < 0 || !WIFEXITED(status) || WEXITSTATUS(status) == 0) return YES;
+    }
+    const char *launchctl = "/bin/launchctl";
+    char *fallback[] = {(char *)launchctl, "reboot", "userspace", NULL};
+    return posix_spawn(&pid, launchctl, NULL, NULL, fallback, environ) == 0;
+}
+
 static id BCXIconViewForBundleID(NSString *bundleID) {
     Class controllerClass = NSClassFromString(@"SBIconController");
     if (![controllerClass respondsToSelector:@selector(sharedInstance)]) return nil;
@@ -98,8 +117,16 @@ static id BCXIconViewForBundleID(NSString *bundleID) {
         id map = [controller respondsToSelector:mapSelector]
             ? ((id (*)(id, SEL))objc_msgSend)(controller, mapSelector) : nil;
         SEL viewSelector = @selector(iconViewForIcon:);
-        return icon && [map respondsToSelector:viewSelector]
+        id view = icon && [map respondsToSelector:viewSelector]
             ? ((id (*)(id, SEL, id))objc_msgSend)(map, viewSelector, icon) : nil;
+        if (view || !icon) return view;
+        Class viewClass = NSClassFromString(@"SBIconView");
+        SEL initializer = @selector(initWithConfigurationOptions:);
+        view = [viewClass instancesRespondToSelector:initializer]
+            ? ((id (*)(id, SEL, NSUInteger))objc_msgSend)([viewClass alloc], initializer, 0) : [viewClass new];
+        if ([view respondsToSelector:@selector(setIcon:)])
+            ((void (*)(id, SEL, id))objc_msgSend)(view, @selector(setIcon:), icon);
+        return view;
     } @catch (NSException *exception) {
         return nil;
     }
@@ -216,7 +243,7 @@ static void BCXRunPanelItem(NSDictionary *item) {
         if ([identifier isEqualToString:@"closeandrespring"]) BCXCloseBackgroundApps();
         if (!BCXSpawn(@"/usr/bin/sbreload", nil)) BCXAlert(@"无法启动 SpringBoard 重启工具。");
     } else if ([identifier isEqualToString:@"userspace"]) {
-        if (!BCXSpawn(@"/basebin/jbctl", @"reboot_userspace")) BCXAlert(@"无法启动用户空间重启工具。");
+        if (!BCXRebootUserspace()) BCXAlert(@"无法启动用户空间重启工具。");
     } else if ([identifier isEqualToString:@"uicache"]) {
         if (!BCXSpawn(@"/usr/bin/uicache", @"-a")) BCXAlert(@"无法启动图标刷新工具。");
     }
@@ -236,12 +263,16 @@ static NSArray<NSDictionary *> *activeItems;
 
 static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
     if (!enable || getAppOrientation() != UIInterfaceOrientationPortrait || BCXIsLocked()) return NO;
-    NSArray *items = BCXPanelItems();
-    if (!items.count) return NO;
     UIPanGestureRecognizer *recognizer = nil;
     @try { recognizer = [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"]; }
     @catch (NSException *exception) { return NO; }
     if (![recognizer isKindOfClass:UIPanGestureRecognizer.class]) return NO;
+    CGFloat x = [recognizer locationInView:nil].x;
+    CGFloat width = UIScreen.mainScreen.bounds.size.width;
+    NSString *zoneKey = x <= width * leftValue ? BCX_LEFT_ITEMS
+        : x >= width * (1 - rightWidth) ? BCX_RIGHT_ITEMS : BCX_CENTER_ITEMS;
+    NSArray *items = BCXPanelItemsForKey(zoneKey);
+    if (!items.count) return NO;
     if (activeRecognizer != recognizer) {
         activeRecognizer = recognizer;
         activeItems = items;
