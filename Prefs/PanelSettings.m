@@ -117,6 +117,7 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
         cell.textLabel.text = item[@"title"];
         cell.imageView.image = self.mode == BCXPickerModeApps ? BCXApplicationIcon(item[@"id"]) : BCXItemImage(item, smallIcon);
         if (self.mode == BCXPickerModeApps) cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        if (self.mode == BCXPickerModePanel) cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         if (self.mode == BCXPickerModePanel && [item[@"kind"] isEqualToString:@"quick"]) cell.detailTextLabel.text = item[@"app"];
     }
     if (self.mode == BCXPickerModePanel && path.section == 2) {
@@ -132,7 +133,9 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
 
 - (void)iconSizeChanged:(UISlider *)slider {
     BCXSetIconSize(round(slider.value));
-    [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:0 inSection:2]] withRowAnimation:UITableViewRowAnimationNone];
+    UIView *view = slider;
+    while (view && ![view isKindOfClass:UITableViewCell.class]) view = view.superview;
+    ((UITableViewCell *)view).textLabel.text = [NSString stringWithFormat:@"图标大小 %.0f", round(slider.value)];
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)path {
