@@ -140,7 +140,9 @@ static id BCXIconViewForBundleID(NSString *bundleID) {
         SEL iconSelector = @selector(applicationIconForBundleIdentifier:);
         id icon = [model respondsToSelector:iconSelector]
             ? ((id (*)(id, SEL, id))objc_msgSend)(model, iconSelector, bundleID) : nil;
-        id map = [controller respondsToSelector:@selector(homescreenIconViewMap)] ? [controller homescreenIconViewMap] : nil;
+        SEL mapSelector = @selector(homescreenIconViewMap);
+        id map = [controller respondsToSelector:mapSelector]
+            ? ((id (*)(id, SEL))objc_msgSend)(controller, mapSelector) : nil;
         SEL viewSelector = @selector(iconViewForIcon:);
         return icon && [map respondsToSelector:viewSelector]
             ? ((id (*)(id, SEL, id))objc_msgSend)(map, viewSelector, icon) : nil;
@@ -152,14 +154,21 @@ static id BCXIconViewForBundleID(NSString *bundleID) {
 static void BCXCloseBackgroundApps(void) {
     Class controllerClass = NSClassFromString(@"SBApplicationController");
     id controller = [controllerClass respondsToSelector:@selector(sharedInstance)] ? [controllerClass sharedInstance] : nil;
-    if (![controller respondsToSelector:@selector(runningApplications)]) return;
+    SEL runningSelector = @selector(runningApplications);
+    if (![controller respondsToSelector:runningSelector]) return;
+    id running = ((id (*)(id, SEL))objc_msgSend)(controller, runningSelector);
+    if (![running isKindOfClass:NSArray.class]) return;
     // ponytail: ends running background apps; add switcher-card removal only if users need it.
-    for (id app in [controller runningApplications]) {
+    for (id app in running) {
         @try {
-            if ([app respondsToSelector:@selector(isInternalApplication)] && [app isInternalApplication]) continue;
-            id state = [app processState];
-            if ([state isForeground]) continue;
-            int pid = [state pid];
+            SEL internalSelector = @selector(isInternalApplication);
+            if ([app respondsToSelector:internalSelector] && ((BOOL (*)(id, SEL))objc_msgSend)(app, internalSelector)) continue;
+            SEL stateSelector = @selector(processState);
+            id state = [app respondsToSelector:stateSelector]
+                ? ((id (*)(id, SEL))objc_msgSend)(app, stateSelector) : nil;
+            if (![state respondsToSelector:@selector(pid)] || ![state respondsToSelector:@selector(isForeground)]) continue;
+            if (((BOOL (*)(id, SEL))objc_msgSend)(state, @selector(isForeground))) continue;
+            pid_t pid = ((pid_t (*)(id, SEL))objc_msgSend)(state, @selector(pid));
             if (pid > 1 && pid != getpid()) kill(pid, SIGTERM);
         } @catch (NSException *exception) { }
     }
