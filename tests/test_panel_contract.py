@@ -22,6 +22,12 @@ assert 'BCXFinishPanel(commit)' in tweak
 assert 'WFSpringBoardWorkflowRunnerClient' in tweak
 assert 'shortcuts://run-shortcut' not in tweak
 assert 'BCXRebootUserspace()' in tweak and '"reboot_userspace"' in tweak
+assert 'jbclient_root_set_mac_label' in tweak
+assert 'POSIX_SPAWN_START_SUSPENDED' in tweak
+assert 'else if ([identifier isEqualToString:@"respring"]) kill(getpid(), SIGTERM);' in tweak
+assert 'BCXCloseBackgroundApps();\n        kill(getpid(), SIGTERM);' in tweak
+assert 'recognizer.delaysTouchesBegan = YES' in tweak
+assert 'state == UIGestureRecognizerStateCancelled) && activeMaxDistance >= 80' in tweak
 assert 'customSymbol' in data and 'customImage' in data
 assert '_applicationIconImageForBundleIdentifier' in data
 assert '_fetchApplicationShortcutItemsIfAppropriate' in data

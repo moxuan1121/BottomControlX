@@ -14,13 +14,15 @@ BottomControlX 将底部划分为左、中、右三个全局区域，每个区�
 make clean package THEOS_PACKAGE_SCHEME=roothide
 ```
 
-构建后先验证设置页打开与三档图标大小，再分别验证快捷指令、应用图标快捷操作、面板手势和越狱动作。GitHub Actions 的构建成功只证明可编译和打包，不能代替 iOS 15.6 真机验证。
+构建后分别验证设置页、快捷指令、应用图标快捷操作、面板手势和越狱动作。GitHub Actions 的构建成功只证明可编译和打包，不能代替 iOS 15.6 真机验证。
 
 ## 已知兼容边界
 
 - 快捷指令列表以只读方式读取 iOS 15 的 `Shortcuts.sqlite`，运行时通过 iOS 15 的 `WFSpringBoardWorkflowRunnerClient` 按稳定 ID 从 SpringBoard 后台启动，不跳转快捷指令 App。需要显示界面或首次授权的指令仍可能需要用户交互；该私有接口需在目标设备上实测。
 - 应用列表读取系统应用图标。图标快捷操作由 SpringBoard 的快捷操作服务及 iOS 15 图标视图接口查询，静态菜单项也会从应用资料读取。运行时优先使用图标视图激活；不同应用的动态快捷操作仍需逐项实测。
 - 「关闭后台应用」向后台进程发送结束信号，系统任务切换器中的卡片可能保留。
-- 重启 SpringBoard、重启用户空间、刷新图标依赖 roothide 环境中对应的 `sbreload`、`jbctl`、`uicache` 工具。
+- 「重启 SpringBoard」只结束 SpringBoard；「重启 SpringBoard 并释放后台」会先结束后台应用，再结束 SpringBoard。
+- 用户空间重启按 Dopamine roothide 的方式临时取得 root 与非沙盒标签，并以挂起状态启动 `jbctl reboot_userspace` 后继续执行。刷新图标依赖 roothide 环境中的 `uicache`。
+- 底部手势会优先延迟键盘左下角切换键盘、右下角听写按钮的触摸；若系统仍在滑动中途取消识别，已超过触发距离的手势按完成处理。
 
 本项目基于 [ichitaso/BottomControlX](https://github.com/ichitaso/BottomControlX)，遵循原项目许可证。

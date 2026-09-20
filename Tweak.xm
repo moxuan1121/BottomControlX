@@ -8,6 +8,7 @@
 #import <sys/wait.h>
 #import <dlfcn.h>
 #import <objc/runtime.h>
+#import <stdint.h>
 
 #define Home                1
 #define CCC                 2
@@ -92,16 +93,31 @@ static BOOL BCXSpawn(NSString *program, NSString *argument) {
 
 static BOOL BCXRebootUserspace(void) {
     const char *jbctl = jbroot("/basebin/jbctl");
+    const char *library = jbroot("/basebin/libjailbreak.dylib");
+    void *handle = dlopen(library, RTLD_NOW | RTLD_LOCAL);
+    typedef int (*BCXSetMacLabel)(uint64_t, uint64_t, uint64_t *);
+    BCXSetMacLabel setMacLabel = handle ? (BCXSetMacLabel)dlsym(handle, "jbclient_root_set_mac_label") : NULL;
+    uid_t originalUser = getuid();
+    gid_t originalGroup = getgid();
+    if (originalGroup != 0) setgid(0);
+    if (originalUser != 0) setuid(0);
+    uint64_t originalLabel = 0;
+    BOOL labelChanged = setMacLabel && setMacLabel(1, UINT64_MAX, &originalLabel) == 0;
+
     pid_t pid = 0;
     char *argv[] = {(char *)jbctl, (char *)"reboot_userspace", NULL};
     extern char **environ;
-    if (access(jbctl, X_OK) == 0 && posix_spawn(&pid, jbctl, NULL, NULL, argv, environ) == 0) {
-        int status = 0;
-        if (waitpid(pid, &status, 0) < 0 || !WIFEXITED(status) || WEXITSTATUS(status) == 0) return YES;
-    }
-    const char *launchctl = "/bin/launchctl";
-    char *fallback[] = {(char *)launchctl, (char *)"reboot", (char *)"userspace", NULL};
-    return posix_spawn(&pid, launchctl, NULL, NULL, fallback, environ) == 0;
+    posix_spawnattr_t attributes;
+    posix_spawnattr_init(&attributes);
+    posix_spawnattr_setflags(&attributes, POSIX_SPAWN_START_SUSPENDED);
+    BOOL started = access(jbctl, X_OK) == 0 && posix_spawn(&pid, jbctl, NULL, &attributes, argv, environ) == 0;
+    posix_spawnattr_destroy(&attributes);
+    if (started) kill(pid, SIGCONT);
+    if (labelChanged) setMacLabel(1, originalLabel, NULL);
+    if (originalGroup != 0) setgid(originalGroup);
+    if (originalUser != 0) seteuid(originalUser);
+    if (handle) dlclose(handle);
+    return started;
 }
 
 static id BCXIconViewForBundleID(NSString *bundleID) {
@@ -248,9 +264,10 @@ static void BCXRunPanelItem(NSDictionary *item) {
     else if ([identifier isEqualToString:@"screenshot"]) [(SpringBoard *)UIApplication.sharedApplication takeScreenshot];
     else if ([identifier isEqualToString:@"lock"]) [(SpringBoard *)UIApplication.sharedApplication _simulateLockButtonPress];
     else if ([identifier isEqualToString:@"closeapps"]) BCXCloseBackgroundApps();
-    else if ([identifier isEqualToString:@"respring"] || [identifier isEqualToString:@"closeandrespring"]) {
-        if ([identifier isEqualToString:@"closeandrespring"]) BCXCloseBackgroundApps();
-        if (!BCXSpawn(@"/usr/bin/sbreload", nil)) BCXAlert(@"无法启动 SpringBoard 重启工具。");
+    else if ([identifier isEqualToString:@"respring"]) kill(getpid(), SIGTERM);
+    else if ([identifier isEqualToString:@"closeandrespring"]) {
+        BCXCloseBackgroundApps();
+        kill(getpid(), SIGTERM);
     } else if ([identifier isEqualToString:@"userspace"]) {
         if (!BCXRebootUserspace()) BCXAlert(@"无法启动用户空间重启工具。");
     } else if ([identifier isEqualToString:@"uicache"]) {
@@ -269,6 +286,17 @@ static inline UIInterfaceOrientation getAppOrientation() {
 
 static __weak UIPanGestureRecognizer *activeRecognizer;
 static NSArray<NSDictionary *> *activeItems;
+static CGFloat activeMaxDistance;
+
+static void BCXConfigureEdgeRecognizer(SBFluidSwitcherGestureManager *manager) {
+    @try {
+        UIPanGestureRecognizer *recognizer = [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"];
+        if (![recognizer isKindOfClass:UIPanGestureRecognizer.class]) return;
+        recognizer.cancelsTouchesInView = YES;
+        recognizer.delaysTouchesBegan = YES;
+        recognizer.delaysTouchesEnded = YES;
+    } @catch (NSException *exception) { }
+}
 
 static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
     if (!enable || getAppOrientation() != UIInterfaceOrientationPortrait || BCXIsLocked()) return NO;
@@ -276,6 +304,7 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
     @try { recognizer = [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"]; }
     @catch (NSException *exception) { return NO; }
     if (![recognizer isKindOfClass:UIPanGestureRecognizer.class]) return NO;
+    BCXConfigureEdgeRecognizer(manager);
     CGFloat x = [recognizer locationInView:nil].x;
     CGFloat width = UIScreen.mainScreen.bounds.size.width;
     NSString *zoneKey = x <= width * leftValue ? BCX_LEFT_ITEMS
@@ -285,6 +314,7 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
     if (activeRecognizer != recognizer) {
         activeRecognizer = recognizer;
         activeItems = items;
+        activeMaxDistance = 0;
         [recognizer addTarget:manager action:@selector(bcx_handleGesture:)];
         if (items.count > 1) {
             if (!BCXBeginPanel(items, ^(NSDictionary *item) { BCXRunPanelItem(item); })) {
@@ -300,17 +330,23 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
 
 %hook SBFluidSwitcherGestureManager
 
+- (void)setDeckGrabberTongue:(SBGrabberTongue *)tongue {
+    %orig;
+    BCXConfigureEdgeRecognizer(self);
+}
+
 %new
 - (void)bcx_handleGesture:(UIPanGestureRecognizer *)recognizer {
     if (activeRecognizer != recognizer) return;
     UIGestureRecognizerState state = recognizer.state;
     CGFloat distance = MAX(0, -[recognizer translationInView:nil].y);
+    activeMaxDistance = MAX(activeMaxDistance, distance);
     if (state == UIGestureRecognizerStateChanged || state == UIGestureRecognizerStateBegan) {
         if (activeItems.count > 1) BCXUpdatePanel(distance);
     } else if (state == UIGestureRecognizerStateEnded ||
                state == UIGestureRecognizerStateCancelled ||
                state == UIGestureRecognizerStateFailed) {
-        BOOL commit = state == UIGestureRecognizerStateEnded && distance >= 80;
+        BOOL commit = (state == UIGestureRecognizerStateEnded || state == UIGestureRecognizerStateCancelled) && activeMaxDistance >= 80;
         if (activeItems.count > 1) BCXFinishPanel(commit);
         else if (commit && activeItems.count == 1) BCXRunPanelItem(activeItems.firstObject);
         [recognizer removeTarget:self action:@selector(bcx_handleGesture:)];
