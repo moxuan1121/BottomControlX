@@ -60,6 +60,16 @@ void BCXSetIconSize(CGFloat size) {
     }
 }
 
+CGFloat BCXHandleHeight(void) {
+    CGFloat height = [BCXPreferences()[BCX_HANDLE_HEIGHT] doubleValue];
+    return height >= 48 ? MIN(160, height) : 84;
+}
+
+CGFloat BCXHandlePosition(void) {
+    CGFloat position = [BCXPreferences()[BCX_HANDLE_POSITION] doubleValue];
+    return position >= 0.1 ? MIN(0.9, position) : 0.58;
+}
+
 NSArray<NSDictionary *> *BCXBuiltinActions(void) {
     return @[
         @{@"kind":@"builtin", @"id":@"control", @"title":@"控制中心", @"symbol":@"switch.2"},

@@ -70,38 +70,12 @@ static BOOL BCXSpawn(NSString *program, NSString *argument) {
 
 static BOOL BCXRebootUserspace(void) {
     const char *jbctl = jbroot("/basebin/jbctl");
-    const char *library = jbroot("/basebin/libjailbreak.dylib");
-    void *handle = dlopen(library, RTLD_NOW | RTLD_LOCAL);
-    typedef int (*BCXSetMacLabel)(uint64_t, uint64_t, uint64_t *);
-    typedef int (*BCXExecSuspended)(pid_t *, const char *, ...);
-    BCXSetMacLabel setMacLabel = handle ? (BCXSetMacLabel)dlsym(handle, "jbclient_root_set_mac_label") : NULL;
-    BCXExecSuspended execSuspended = handle ? (BCXExecSuspended)dlsym(handle, "exec_cmd_suspended") : NULL;
-    if (!setMacLabel || !execSuspended || access(jbctl, X_OK) != 0) {
-        if (handle) dlclose(handle);
-        return NO;
-    }
-
-    uid_t originalUser = getuid();
-    gid_t originalGroup = getgid();
-    int userResult = originalUser == 0 ? 0 : setuid(0);
-    int groupResult = originalGroup == 0 ? 0 : setgid(0);
-    if (userResult != 0 || groupResult != 0) {
-        if (groupResult == 0 && originalGroup != 0) setgid(originalGroup);
-        if (userResult == 0 && originalUser != 0) seteuid(originalUser);
-        dlclose(handle);
-        return NO;
-    }
-
-    uint64_t originalLabel = 0;
-    BOOL labelChanged = setMacLabel(1, UINT64_MAX, &originalLabel) == 0;
+    if (access(jbctl, X_OK) != 0) return NO;
+    sync();
     pid_t pid = 0;
-    BOOL started = labelChanged && execSuspended(&pid, jbctl, "reboot_userspace", NULL) == 0;
-    if (started) kill(pid, SIGCONT);
-    if (labelChanged) setMacLabel(1, originalLabel, NULL);
-    if (originalGroup != 0) setgid(originalGroup);
-    if (originalUser != 0) seteuid(originalUser);
-    dlclose(handle);
-    return started;
+    char *argv[] = {(char *)jbctl, (char *)"reboot_userspace", NULL};
+    extern char **environ;
+    return posix_spawn(&pid, jbctl, NULL, NULL, argv, environ) == 0;
 }
 
 static id BCXIconViewForBundleID(NSString *bundleID) {

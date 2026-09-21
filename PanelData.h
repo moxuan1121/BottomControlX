@@ -7,6 +7,8 @@ extern "C" {
 #define BCX_LEFT_ITEMS @"panelItemsLeft"
 #define BCX_RIGHT_ITEMS @"panelItemsRight"
 #define BCX_ICON_SIZE @"panelIconSize"
+#define BCX_HANDLE_HEIGHT @"handleHeight"
+#define BCX_HANDLE_POSITION @"handlePosition"
 
 NSArray<NSDictionary *> *BCXPanelItemsForKey(NSString *key);
 void BCXSavePanelItemsForKey(NSString *key, NSArray<NSDictionary *> *items);
@@ -22,6 +24,8 @@ id BCXQuickActionItem(NSString *bundleID, NSString *type, id iconView);
 void BCXCacheQuickActions(NSString *bundleID, NSArray *actions);
 CGFloat BCXIconSize(void);
 void BCXSetIconSize(CGFloat size);
+CGFloat BCXHandleHeight(void);
+CGFloat BCXHandlePosition(void);
 NSString *BCXSymbol(NSDictionary *item);
 UIImage *BCXItemImage(NSDictionary *item, CGFloat size);
 UIImage *BCXApplicationIcon(NSString *bundleID);

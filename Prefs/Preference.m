@@ -19,6 +19,18 @@
 
 @implementation BottomControlXController
 
+- (PSSpecifier *)sliderForKey:(NSString *)key defaultValue:(CGFloat)defaultValue minimum:(CGFloat)minimum maximum:(CGFloat)maximum {
+    PSSpecifier *item = [PSSpecifier preferenceSpecifierNamed:nil target:self
+        set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
+        detail:Nil cell:PSSliderCell edit:Nil];
+    [item setProperty:key forKey:@"key"];
+    [item setProperty:@(defaultValue) forKey:@"default"];
+    [item setProperty:@(minimum) forKey:@"min"];
+    [item setProperty:@(maximum) forKey:@"max"];
+    [item setProperty:@YES forKey:@"showValue"];
+    return item;
+}
+
 - (PSSpecifier *)groupNamed:(NSString *)name footer:(NSString *)footer {
     PSSpecifier *item = name
         ? [PSSpecifier preferenceSpecifierNamed:name target:self set:Nil get:Nil detail:Nil cell:PSGroupCell edit:Nil]
@@ -49,6 +61,10 @@
         footer:@"配置动作后显示对应的圆角手柄。按住手柄向屏幕内拖动呼出面板，往回拖可取消。"]];
     [items addObject:[self buttonNamed:@"左侧手柄动作" action:@selector(openLeftSettings)]];
     [items addObject:[self buttonNamed:@"右侧手柄动作" action:@selector(openRightSettings)]];
+    [items addObject:[self groupNamed:@"手柄高度" footer:@"调节圆角手柄的可见高度。"]];
+    [items addObject:[self sliderForKey:BCX_HANDLE_HEIGHT defaultValue:84 minimum:48 maximum:160]];
+    [items addObject:[self groupNamed:@"垂直位置" footer:@"数值表示手柄中心在屏幕高度中的位置。"]];
+    [items addObject:[self sliderForKey:BCX_HANDLE_POSITION defaultValue:0.58 minimum:0.10 maximum:0.90]];
 
     [items addObject:[self groupNamed:@"维护" footer:nil]];
     [items addObject:[self buttonNamed:@"重置全部设置" action:@selector(resetSettings)]];

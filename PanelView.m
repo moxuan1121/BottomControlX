@@ -46,7 +46,12 @@ static void (^handleRunAction)(NSDictionary *item);
     [self.view addSubview:shade];
     self.shade = shade;
 
+    UIFont *labelFont = [UIFont systemFontOfSize:11];
     CGFloat width = 104;
+    for (NSDictionary *item in self.items) {
+        CGFloat titleWidth = [item[@"title"] sizeWithAttributes:@{NSFontAttributeName:labelFont}].width + 24;
+        width = MAX(width, MIN(220, ceil(titleWidth)));
+    }
     CGFloat iconSize = MIN(BCXIconSize(), 46);
     CGFloat cellHeight = iconSize + 42;
     CGFloat safeTop = self.view.safeAreaInsets.top + 12;
@@ -89,7 +94,7 @@ static void (^handleRunAction)(NSDictionary *item);
         label.numberOfLines = 1;
         label.adjustsFontSizeToFitWidth = YES;
         label.minimumScaleFactor = 0.72;
-        label.font = [UIFont systemFontOfSize:11];
+        label.font = labelFont;
         [tile addSubview:label];
         [scroll addSubview:tile];
     }
@@ -160,15 +165,19 @@ static void (^handleRunAction)(NSDictionary *item);
 
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
-    CGFloat y = floor(self.view.bounds.size.height * 0.58 - 52);
-    self.leftHandle.frame = CGRectMake(0, y, 28, 104);
-    self.rightHandle.frame = CGRectMake(self.view.bounds.size.width - 28, y, 28, 104);
+    CGFloat pillHeight = BCXHandleHeight();
+    CGFloat touchHeight = pillHeight + 20;
+    CGFloat y = floor(self.view.bounds.size.height * BCXHandlePosition() - touchHeight / 2);
+    y = MAX(0, MIN(self.view.bounds.size.height - touchHeight, y));
+    self.leftHandle.frame = CGRectMake(0, y, 28, touchHeight);
+    self.rightHandle.frame = CGRectMake(self.view.bounds.size.width - 28, y, 28, touchHeight);
     for (UIView *handle in @[self.leftHandle, self.rightHandle]) {
         BOOL left = handle.tag == 1;
         UIView *pill = [handle viewWithTag:10];
-        pill.frame = CGRectMake(left ? -4 : 16, 10, 16, 84);
+        pill.frame = CGRectMake(left ? -4 : 16, 10, 16, pillHeight);
         UIView *line = [pill viewWithTag:11];
-        line.frame = CGRectMake(left ? 8 : 5, 24, 3, 36);
+        CGFloat lineHeight = pillHeight * 0.9;
+        line.frame = CGRectMake(left ? 8 : 5, (pillHeight - lineHeight) / 2, 3, lineHeight);
     }
     [self reloadHandles];
 }
@@ -213,7 +222,10 @@ void BCXConfigureSideHandles(BOOL enabled, void (^runAction)(NSDictionary *item)
         handleWindow.rootViewController = [BCXHandleController new];
     }
     (void)handleWindow.rootViewController.view;
-    [(BCXHandleController *)handleWindow.rootViewController reloadHandles];
+    BCXHandleController *controller = (BCXHandleController *)handleWindow.rootViewController;
+    [controller.view setNeedsLayout];
+    [controller.view layoutIfNeeded];
+    [controller reloadHandles];
     handleWindow.hidden = NO;
 }
 
