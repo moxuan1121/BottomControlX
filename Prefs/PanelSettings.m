@@ -23,7 +23,7 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
 @implementation BCXPanelSettingsController
 
 - (instancetype)init {
-    return [self initWithZoneKey:BCX_CENTER_ITEMS title:@"中间区域动作"];
+    return [self initWithZoneKey:BCX_LEFT_ITEMS title:@"左侧区域动作"];
 }
 
 - (instancetype)initWithZoneKey:(NSString *)zoneKey title:(NSString *)title {

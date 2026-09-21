@@ -10,14 +10,9 @@ static NSDictionary *BCXPreferences(void) {
     return [prefs isKindOfClass:NSDictionary.class] ? prefs : @{};
 }
 
-NSArray<NSDictionary *> *BCXPanelItems(void) {
-    return BCXPanelItemsForKey(BCX_CENTER_ITEMS);
-}
-
 NSArray<NSDictionary *> *BCXPanelItemsForKey(NSString *key) {
     NSDictionary *prefs = BCXPreferences();
     id items = prefs[key];
-    if (!items && [key isEqualToString:BCX_CENTER_ITEMS]) items = prefs[BCX_PANEL_ITEMS];
     if (![items isKindOfClass:NSArray.class]) return @[];
     NSMutableArray *valid = [NSMutableArray array];
     for (id item in items) {
@@ -27,10 +22,6 @@ NSArray<NSDictionary *> *BCXPanelItemsForKey(NSString *key) {
         }
     }
     return valid;
-}
-
-void BCXSavePanelItems(NSArray<NSDictionary *> *items) {
-    BCXSavePanelItemsForKey(BCX_CENTER_ITEMS, items);
 }
 
 void BCXSavePanelItemsForKey(NSString *key, NSArray<NSDictionary *> *items) {
@@ -64,6 +55,8 @@ NSArray<NSDictionary *> *BCXBuiltinActions(void) {
         @{@"kind":@"builtin", @"id":@"closeapps", @"title":@"关闭后台应用", @"symbol":@"xmark.app"},
         @{@"kind":@"builtin", @"id":@"closeandrespring", @"title":@"关闭后台并重启 SB", @"symbol":@"arrow.triangle.2.circlepath"},
         @{@"kind":@"builtin", @"id":@"userspace", @"title":@"重启用户空间", @"symbol":@"power"},
+        @{@"kind":@"builtin", @"id":@"reboot", @"title":@"重启手机", @"symbol":@"restart"},
+        @{@"kind":@"builtin", @"id":@"shutdown", @"title":@"关机", @"symbol":@"power.circle"},
         @{@"kind":@"builtin", @"id":@"uicache", @"title":@"刷新应用图标", @"symbol":@"square.grid.2x2"}
     ];
 }
@@ -225,10 +218,29 @@ static NSArray *BCXStaticQuickActions(NSString *bundleID) {
     } @catch (NSException *exception) { return @[]; }
 }
 
+static NSArray *BCXApplicationQuickActions(NSString *bundleID) {
+    Class controllerClass = NSClassFromString(@"SBApplicationController");
+    id controller = [controllerClass respondsToSelector:@selector(sharedInstance)]
+        ? ((id (*)(id, SEL))objc_msgSend)(controllerClass, @selector(sharedInstance)) : nil;
+    SEL applicationSelector = @selector(applicationWithBundleIdentifier:);
+    if (![controller respondsToSelector:applicationSelector]) return @[];
+    @try {
+        id application = ((id (*)(id, SEL, id))objc_msgSend)(controller, applicationSelector, bundleID);
+        NSMutableArray *items = [NSMutableArray array];
+        for (NSString *name in @[@"staticApplicationShortcutItems", @"dynamicApplicationShortcutItems"]) {
+            SEL selector = NSSelectorFromString(name);
+            NSArray *part = [application respondsToSelector:selector]
+                ? ((id (*)(id, SEL))objc_msgSend)(application, selector) : nil;
+            if ([part isKindOfClass:NSArray.class]) [items addObjectsFromArray:part];
+        }
+        return items;
+    } @catch (NSException *exception) { return @[]; }
+}
+
 static NSArray *BCXRawQuickActions(NSString *bundleID, id iconView) {
     NSMutableArray *actions = [NSMutableArray array];
     NSMutableSet *seen = [NSMutableSet set];
-    for (NSArray *source in @[BCXIconQuickActions(iconView), BCXServiceQuickActions(bundleID), BCXStaticQuickActions(bundleID)]) {
+    for (NSArray *source in @[BCXApplicationQuickActions(bundleID), BCXIconQuickActions(iconView), BCXServiceQuickActions(bundleID), BCXStaticQuickActions(bundleID)]) {
         for (id action in source) {
             @try {
                 SEL selector = @selector(type);
@@ -255,7 +267,15 @@ static NSArray<NSDictionary *> *BCXQuickActionDictionaries(NSArray *actions, NSS
                 ? ((id (*)(id, SEL))objc_msgSend)(action, @selector(localizedTitle)) : nil;
             if (type.length && title.length && ![seen containsObject:type]) {
                 [seen addObject:type];
-                [items addObject:@{@"kind":@"quick", @"id":type, @"app":bundleID, @"title":title}];
+                NSMutableDictionary *entry = [@{@"kind":@"quick", @"id":type, @"app":bundleID, @"title":title} mutableCopy];
+                SEL userInfoSelector = @selector(userInfo);
+                id userInfo = [action respondsToSelector:userInfoSelector]
+                    ? ((id (*)(id, SEL))objc_msgSend)(action, userInfoSelector) : nil;
+                if ([userInfo isKindOfClass:NSDictionary.class] &&
+                    [NSPropertyListSerialization propertyList:userInfo isValidForFormat:NSPropertyListBinaryFormat_v1_0]) {
+                    entry[@"userInfo"] = userInfo;
+                }
+                [items addObject:entry];
             }
         } @catch (NSException *exception) { }
     }

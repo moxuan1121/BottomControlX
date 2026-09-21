@@ -21,6 +21,7 @@
 static BOOL enable;
 static CGFloat leftValue;
 static CGFloat rightWidth;
+static CGFloat edgeInsetValue;
 
 static inline UIInterfaceOrientation getAppOrientation();
 
@@ -29,6 +30,7 @@ static void settingsChanged(CFNotificationCenterRef center, void *observer, CFSt
     enable = (BOOL)[dict[@"enable"] ? : @YES boolValue];
     leftValue = (CGFloat)[dict[@"leftValue"] ? : @0.25 doubleValue];
     rightWidth = (CGFloat)[dict[@"rightWidth"] ? : @0.25 doubleValue];
+    edgeInsetValue = (CGFloat)[dict[@"edgeInsetValue"] ? : @0.10 doubleValue];
 }
 
 static id gControl = nil;
@@ -176,11 +178,19 @@ static void BCXQuickRequestReceived(CFNotificationCenterRef center, void *observ
 }
 
 static BOOL BCXActivateQuickAction(id action, NSString *bundleID, id iconView) {
-    Class iconClass = NSClassFromString(@"SBIconView");
     SEL activate = @selector(activateShortcut:withBundleIdentifier:forIconView:);
     @try {
-        if (iconView && [iconClass respondsToSelector:activate]) {
-            ((void (*)(id, SEL, id, id, id))objc_msgSend)(iconClass, activate, action, bundleID, iconView);
+        Class controllerClass = NSClassFromString(@"SBIconController");
+        id controller = [controllerClass respondsToSelector:@selector(sharedInstance)]
+            ? ((id (*)(id, SEL))objc_msgSend)(controllerClass, @selector(sharedInstance)) : nil;
+        if ([controller respondsToSelector:activate]) {
+            void (^fire)(void) = ^{
+                ((void (*)(id, SEL, id, id, id))objc_msgSend)(controller, activate, action, bundleID, nil);
+            };
+            fire();
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                @try { fire(); } @catch (NSException *exception) { }
+            });
             return YES;
         }
         dlopen("/System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices", RTLD_LAZY);
@@ -206,6 +216,17 @@ static BOOL BCXActivateQuickAction(id action, NSString *bundleID, id iconView) {
     } @catch (NSException *exception) { return NO; }
 }
 
+static id BCXQuickActionFallback(NSDictionary *item) {
+    Class itemClass = NSClassFromString(@"UIApplicationShortcutItem");
+    SEL initializer = @selector(initWithType:localizedTitle:subtitle:icon:userInfo:);
+    if (![itemClass instancesRespondToSelector:initializer]) return nil;
+    @try {
+        return ((id (*)(id, SEL, id, id, id, id, id))objc_msgSend)([itemClass alloc], initializer,
+            item[@"id"], item[@"title"] ?: @"", @"", nil,
+            [item[@"userInfo"] isKindOfClass:NSDictionary.class] ? item[@"userInfo"] : nil);
+    } @catch (NSException *exception) { return nil; }
+}
+
 static void BCXCloseBackgroundApps(void) {
     Class controllerClass = NSClassFromString(@"SBApplicationController");
     id controller = [controllerClass respondsToSelector:@selector(sharedInstance)] ? [controllerClass sharedInstance] : nil;
@@ -229,20 +250,34 @@ static void BCXCloseBackgroundApps(void) {
     }
 }
 
-// iOS 15 VoiceShortcutClient runs the workflow from SpringBoard without opening Shortcuts.
+// iOS 15 Intents runs the workflow from SpringBoard without opening Shortcuts.
 static BOOL BCXRunShortcut(NSString *identifier) {
-    NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:identifier];
-    if (!uuid) return NO;
-    if (!dlopen("/System/Library/PrivateFrameworks/VoiceShortcutClient.framework/VoiceShortcutClient", RTLD_LAZY)) return NO;
-    Class runnerClass = NSClassFromString(@"WFSpringBoardWorkflowRunnerClient");
+    if (!identifier.length || !dlopen("/System/Library/Frameworks/Intents.framework/Intents", RTLD_NOW | RTLD_LAZY)) return NO;
+    Class runnerClass = NSClassFromString(@"INShortcut");
     SEL initializer = @selector(initWithWorkflowIdentifier:);
-    if (![runnerClass instancesRespondToSelector:initializer]) return NO;
+    if (![runnerClass instancesRespondToSelector:initializer] || ![runnerClass instancesRespondToSelector:@selector(start)]) return NO;
     @try {
-        id runner = ((id (*)(id, SEL, id))objc_msgSend)([runnerClass alloc], initializer, uuid.UUIDString);
-        if (!runner || ![runner respondsToSelector:@selector(start)]) return NO;
+        id runner = ((id (*)(id, SEL, id))objc_msgSend)([runnerClass alloc], initializer, identifier);
+        if (!runner) {
+            NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:identifier];
+            if (uuid) runner = ((id (*)(id, SEL, id))objc_msgSend)([runnerClass alloc], initializer, uuid);
+        }
+        if (!runner) return NO;
         ((void (*)(id, SEL))objc_msgSend)(runner, @selector(start));
         return YES;
     } @catch (NSException *exception) { return NO; }
+}
+
+static BOOL BCXPowerAction(BOOL reboot) {
+    dlopen("/System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices", RTLD_LAZY);
+    Class serviceClass = NSClassFromString(@"FBSystemService");
+    SEL shared = @selector(sharedInstance);
+    SEL action = @selector(shutdownAndReboot:);
+    if (![serviceClass respondsToSelector:shared]) return NO;
+    id service = ((id (*)(id, SEL))objc_msgSend)(serviceClass, shared);
+    if (![service respondsToSelector:action]) return NO;
+    ((void (*)(id, SEL, BOOL))objc_msgSend)(service, action, reboot);
+    return YES;
 }
 
 static void BCXRunPanelItem(NSDictionary *item) {
@@ -255,7 +290,7 @@ static void BCXRunPanelItem(NSDictionary *item) {
     if ([kind isEqualToString:@"quick"]) {
         NSString *bundleID = item[@"app"];
         id iconView = BCXIconViewForBundleID(bundleID);
-        id action = BCXQuickActionItem(bundleID, identifier, iconView);
+        id action = BCXQuickActionItem(bundleID, identifier, iconView) ?: BCXQuickActionFallback(item);
         if (!action) {
             BCXAlert(@"此应用的快捷操作已不可用，请在设置中重新选择。");
             return;
@@ -277,6 +312,10 @@ static void BCXRunPanelItem(NSDictionary *item) {
         kill(getpid(), SIGTERM);
     } else if ([identifier isEqualToString:@"userspace"]) {
         if (!BCXRebootUserspace()) BCXAlert(@"无法启动用户空间重启工具。");
+    } else if ([identifier isEqualToString:@"reboot"]) {
+        if (!BCXPowerAction(YES)) BCXAlert(@"无法重启手机。");
+    } else if ([identifier isEqualToString:@"shutdown"]) {
+        if (!BCXPowerAction(NO)) BCXAlert(@"无法关闭手机。");
     } else if ([identifier isEqualToString:@"uicache"]) {
         if (!BCXSpawn(@"/usr/bin/uicache", @"-a")) BCXAlert(@"无法启动图标刷新工具。");
     }
@@ -293,17 +332,6 @@ static inline UIInterfaceOrientation getAppOrientation() {
 
 static __weak UIPanGestureRecognizer *activeRecognizer;
 static NSArray<NSDictionary *> *activeItems;
-static CGFloat activeMaxDistance;
-
-static void BCXConfigureEdgeRecognizer(SBFluidSwitcherGestureManager *manager) {
-    @try {
-        UIPanGestureRecognizer *recognizer = [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"];
-        if (![recognizer isKindOfClass:UIPanGestureRecognizer.class]) return;
-        recognizer.cancelsTouchesInView = YES;
-        recognizer.delaysTouchesBegan = YES;
-        recognizer.delaysTouchesEnded = YES;
-    } @catch (NSException *exception) { }
-}
 
 static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
     if (!enable || getAppOrientation() != UIInterfaceOrientationPortrait || BCXIsLocked()) return NO;
@@ -311,17 +339,19 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
     @try { recognizer = [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"]; }
     @catch (NSException *exception) { return NO; }
     if (![recognizer isKindOfClass:UIPanGestureRecognizer.class]) return NO;
-    BCXConfigureEdgeRecognizer(manager);
     CGFloat x = [recognizer locationInView:nil].x;
     CGFloat width = UIScreen.mainScreen.bounds.size.width;
-    NSString *zoneKey = x <= width * leftValue ? BCX_LEFT_ITEMS
-        : x >= width * (1 - rightWidth) ? BCX_RIGHT_ITEMS : BCX_CENTER_ITEMS;
+    CGFloat position = x / width;
+    CGFloat leftEnd = MIN(0.48, edgeInsetValue + leftValue);
+    CGFloat rightStart = MAX(0.52, 1 - edgeInsetValue - rightWidth);
+    NSString *zoneKey = position >= edgeInsetValue && position <= leftEnd ? BCX_LEFT_ITEMS
+        : position >= rightStart && position <= 1 - edgeInsetValue ? BCX_RIGHT_ITEMS : nil;
+    if (!zoneKey) return NO;
     NSArray *items = BCXPanelItemsForKey(zoneKey);
     if (!items.count) return NO;
     if (activeRecognizer != recognizer) {
         activeRecognizer = recognizer;
         activeItems = items;
-        activeMaxDistance = 0;
         [recognizer addTarget:manager action:@selector(bcx_handleGesture:)];
         if (items.count > 1) {
             if (!BCXBeginPanel(items, ^(NSDictionary *item) { BCXRunPanelItem(item); })) {
@@ -337,23 +367,18 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
 
 %hook SBFluidSwitcherGestureManager
 
-- (void)setDeckGrabberTongue:(SBGrabberTongue *)tongue {
-    %orig;
-    BCXConfigureEdgeRecognizer(self);
-}
-
 %new
 - (void)bcx_handleGesture:(UIPanGestureRecognizer *)recognizer {
     if (activeRecognizer != recognizer) return;
     UIGestureRecognizerState state = recognizer.state;
     CGFloat distance = MAX(0, -[recognizer translationInView:nil].y);
-    activeMaxDistance = MAX(activeMaxDistance, distance);
     if (state == UIGestureRecognizerStateChanged || state == UIGestureRecognizerStateBegan) {
         if (activeItems.count > 1) BCXUpdatePanel(distance);
     } else if (state == UIGestureRecognizerStateEnded ||
                state == UIGestureRecognizerStateCancelled ||
                state == UIGestureRecognizerStateFailed) {
-        BOOL commit = (state == UIGestureRecognizerStateEnded || state == UIGestureRecognizerStateCancelled) && activeMaxDistance >= 80;
+        CGFloat velocity = -[recognizer velocityInView:nil].y;
+        BOOL commit = state == UIGestureRecognizerStateEnded && (distance >= 80 || velocity >= 700);
         if (activeItems.count > 1) BCXFinishPanel(commit);
         else if (commit && activeItems.count == 1) BCXRunPanelItem(activeItems.firstObject);
         [recognizer removeTarget:self action:@selector(bcx_handleGesture:)];

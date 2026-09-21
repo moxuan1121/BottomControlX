@@ -104,7 +104,15 @@ static __weak UIWindow *previousKeyWindow;
 }
 
 - (void)dragDown:(UIPanGestureRecognizer *)pan {
-    if (pan.state == UIGestureRecognizerStateEnded && [pan translationInView:self.view].y > 80) BCXHidePanel();
+    CGFloat distance = MAX(0, [pan translationInView:self.view].y);
+    if (pan.state == UIGestureRecognizerStateBegan || pan.state == UIGestureRecognizerStateChanged) {
+        [self setRevealProgress:1 - distance / self.sheet.bounds.size.height];
+    } else if (pan.state == UIGestureRecognizerStateEnded) {
+        BOOL close = distance > 80 || [pan velocityInView:self.view].y > 700;
+        if (close) BCXHidePanel(); else BCXFinishPanel(YES);
+    } else if (pan.state == UIGestureRecognizerStateCancelled || pan.state == UIGestureRecognizerStateFailed) {
+        BCXFinishPanel(YES);
+    }
 }
 
 @end
@@ -148,18 +156,27 @@ void BCXFinishPanel(BOOL show) {
         [panelWindow makeKeyWindow];
         panelWindow.userInteractionEnabled = YES;
     }
-    [UIView animateWithDuration:0.38 delay:0 usingSpringWithDamping:0.84 initialSpringVelocity:0 options:UIViewAnimationOptionBeginFromCurrentState animations:^{
-        [(BCXPanelController *)window.rootViewController setRevealProgress:show ? 1 : 0];
-    } completion:^(BOOL finished) {
-        if (!show && panelWindow == window) BCXHidePanel();
-    }];
+    void (^animations)(void) = ^{ [(BCXPanelController *)window.rootViewController setRevealProgress:show ? 1 : 0]; };
+    void (^completion)(BOOL) = ^(BOOL finished) {
+        if (!show && panelWindow == window) {
+            panelWindow.hidden = YES;
+            panelWindow.rootViewController = nil;
+            panelWindow = nil;
+            [previousKeyWindow makeKeyWindow];
+            previousKeyWindow = nil;
+        }
+    };
+    if (show) {
+        [UIView animateWithDuration:0.38 delay:0 usingSpringWithDamping:0.86 initialSpringVelocity:0
+            options:UIViewAnimationOptionBeginFromCurrentState animations:animations completion:completion];
+    } else {
+        window.userInteractionEnabled = NO;
+        [UIView animateWithDuration:0.30 delay:0 options:UIViewAnimationOptionCurveEaseIn | UIViewAnimationOptionBeginFromCurrentState
+            animations:animations completion:completion];
+    }
 }
 
 void BCXHidePanel(void) {
     if (!panelWindow) return;
-    panelWindow.hidden = YES;
-    panelWindow.rootViewController = nil;
-    panelWindow = nil;
-    [previousKeyWindow makeKeyWindow];
-    previousKeyWindow = nil;
+    BCXFinishPanel(NO);
 }

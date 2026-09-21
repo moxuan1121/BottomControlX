@@ -13,21 +13,27 @@ tweak = (root / "Tweak.xm").read_text(encoding="utf-8")
 assert 'key:@"BottomLeftGesture"' not in prefs
 assert 'key:@"BottomCenterGesture"' not in prefs
 assert 'key:@"BottomRightGesture"' not in prefs
-for zone in ("BCX_LEFT_ITEMS", "BCX_CENTER_ITEMS", "BCX_RIGHT_ITEMS"):
+for zone in ("BCX_LEFT_ITEMS", "BCX_RIGHT_ITEMS"):
     assert zone in prefs and zone in tweak
+assert "BCX_CENTER_ITEMS" not in prefs and "BCX_CENTER_ITEMS" not in tweak
 assert 'key:@"leftValue"' in prefs and 'key:@"rightWidth"' in prefs
+assert 'key:@"edgeInsetValue"' in prefs
 assert 'activeItems.count > 1' in tweak
 assert 'activeItems.count == 1' in tweak
 assert 'BCXFinishPanel(commit)' in tweak
-assert 'WFSpringBoardWorkflowRunnerClient' in tweak
+assert 'NSClassFromString(@"INShortcut")' in tweak
+assert 'initWithWorkflowIdentifier:' in tweak and '@selector(start)' in tweak
 assert 'shortcuts://run-shortcut' not in tweak
 assert 'BCXRebootUserspace()' in tweak and '"reboot_userspace"' in tweak
 assert 'jbclient_root_set_mac_label' in tweak
 assert 'exec_cmd_suspended' in tweak
 assert 'else if ([identifier isEqualToString:@"respring"]) kill(getpid(), SIGTERM);' in tweak
 assert 'BCXCloseBackgroundApps();\n        kill(getpid(), SIGTERM);' in tweak
-assert 'recognizer.delaysTouchesBegan = YES' in tweak
-assert 'state == UIGestureRecognizerStateCancelled) && activeMaxDistance >= 80' in tweak
+assert 'position >= edgeInsetValue && position <= leftEnd' in tweak
+assert 'position >= rightStart && position <= 1 - edgeInsetValue' in tweak
+assert 'state == UIGestureRecognizerStateEnded && (distance >= 80 || velocity >= 700)' in tweak
+assert 'BCXApplicationQuickActions' in data
+assert 'SBIconController' in tweak and 'activateShortcut:withBundleIdentifier:forIconView:' in tweak
 assert 'customSymbol' in data and 'customImage' in data
 assert '_applicationIconImageForBundleIdentifier' in data
 assert '_fetchApplicationShortcutItemsIfAppropriate' in data
@@ -41,7 +47,7 @@ list_query = re.search(r'"(SELECT ZWORKFLOWID, ZNAME FROM ZSHORTCUT[^\"]+)"', da
 assert db.execute(list_query).fetchall() == [("stable-id", "测试指令")]
 assert "BCXRequestQuickActions" in data and "BCXQuickRequestReceived" in tweak
 
-for action in ("closeapps", "closeandrespring", "respring", "userspace"):
+for action in ("closeapps", "closeandrespring", "respring", "userspace", "reboot", "shutdown"):
     assert f'@"{action}"' in data and f'@"{action}"' in tweak
 
 print("panel contract OK")

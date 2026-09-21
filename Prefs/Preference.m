@@ -61,15 +61,16 @@
     [item setProperty:@YES forKey:@"default"];
     [items addObject:item];
 
-    [items addObject:[self groupNamed:@"左、中、右上滑区域"
-        footer:@"三个区域在桌面和应用内全局通用。每个区域只选一项时直接运行，选择多项时显示面板；未添加动作的区域保留系统手势。"]];
+    [items addObject:[self groupNamed:@"左、右上滑区域"
+        footer:@"只在避开屏幕角落和底部中央后的左右区域触发。每个区域只选一项时直接运行，选择多项时显示面板；其他位置保留系统手势。"]];
     [items addObject:[self buttonNamed:@"左侧区域动作" action:@selector(openLeftSettings)]];
-    [items addObject:[self buttonNamed:@"中间区域动作" action:@selector(openCenterSettings)]];
     [items addObject:[self buttonNamed:@"右侧区域动作" action:@selector(openRightSettings)]];
     NSArray *rangeValues = @[@0.15, @0.20, @0.25, @0.30, @0.35, @0.40];
     NSArray *rangeTitles = @[@"15%", @"20%", @"25%", @"30%", @"35%", @"40%"];
     [items addObject:[self choiceNamed:@"左侧区域宽度" key:@"leftValue" defaultValue:@0.25 values:rangeValues titles:rangeTitles]];
     [items addObject:[self choiceNamed:@"右侧区域宽度" key:@"rightWidth" defaultValue:@0.25 values:rangeValues titles:rangeTitles]];
+    [items addObject:[self choiceNamed:@"屏幕角落避让" key:@"edgeInsetValue" defaultValue:@0.10
+        values:@[@0.06, @0.08, @0.10, @0.12, @0.15] titles:@[@"6%", @"8%", @"10%", @"12%", @"15%"]]];
 
     [items addObject:[self groupNamed:@"维护" footer:nil]];
     [items addObject:[self buttonNamed:@"重置全部设置" action:@selector(resetSettings)]];
@@ -97,7 +98,6 @@
 }
 
 - (void)openLeftSettings { [self openZone:BCX_LEFT_ITEMS title:@"左侧区域动作"]; }
-- (void)openCenterSettings { [self openZone:BCX_CENTER_ITEMS title:@"中间区域动作"]; }
 - (void)openRightSettings { [self openZone:BCX_RIGHT_ITEMS title:@"右侧区域动作"]; }
 - (void)openZone:(NSString *)key title:(NSString *)title {
     [self.navigationController pushViewController:[[BCXPanelSettingsController alloc] initWithZoneKey:key title:title] animated:YES];

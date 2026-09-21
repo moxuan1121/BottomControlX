@@ -4,15 +4,10 @@
 extern "C" {
 #endif
 
-#define BCX_PANEL_ACTION 11
-#define BCX_PANEL_ITEMS @"panelItems"
 #define BCX_LEFT_ITEMS @"panelItemsLeft"
-#define BCX_CENTER_ITEMS @"panelItemsCenter"
 #define BCX_RIGHT_ITEMS @"panelItemsRight"
 #define BCX_ICON_SIZE @"panelIconSize"
 
-NSArray<NSDictionary *> *BCXPanelItems(void);
-void BCXSavePanelItems(NSArray<NSDictionary *> *items);
 NSArray<NSDictionary *> *BCXPanelItemsForKey(NSString *key);
 void BCXSavePanelItemsForKey(NSString *key, NSArray<NSDictionary *> *items);
 NSArray<NSDictionary *> *BCXBuiltinActions(void);

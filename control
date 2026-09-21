@@ -3,7 +3,7 @@ Name: BottomControlX
 Depends: firmware (>= 11.0), mobilesubstrate, preferenceloader
 Conflicts: com.xcxiao.bottomcontrolx
 Replaces: com.xcxiao.bottomcontrolx
-Version: 1.0.1+panel7
+Version: 1.0.1+panel8
 Architecture: iphoneos-arm
 Description: iOS 15 roothide 底部上滑快捷面板
 Maintainer: ichitaso
