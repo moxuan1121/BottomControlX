@@ -479,12 +479,18 @@ static BOOL BCXSuppressSystemSwipe(SBFluidSwitcherGestureManager *manager, id ge
     @try {
         if ([gesture respondsToSelector:@selector(locationInView:)]) {
             CGPoint point = ((CGPoint (*)(id, SEL, id))objc_msgSend)(gesture, @selector(locationInView:), nil);
-            if (BCXClaimsX(point.x)) return YES;
+            if (BCXClaimsX(point.x)) {
+                BCXBeginRecognizer(manager, gesture);
+                return YES;
+            }
         }
         id edgeGesture = [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"];
         if ([edgeGesture respondsToSelector:@selector(locationInView:)]) {
             CGPoint point = ((CGPoint (*)(id, SEL, id))objc_msgSend)(edgeGesture, @selector(locationInView:), nil);
-            return BCXClaimsX(point.x);
+            if (BCXClaimsX(point.x)) {
+                BCXBeginRecognizer(manager, edgeGesture);
+                return YES;
+            }
         }
     } @catch (NSException *exception) { }
     return NO;
