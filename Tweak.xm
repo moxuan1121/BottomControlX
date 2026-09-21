@@ -10,22 +10,15 @@
 #import <stdint.h>
 
 static BOOL enable;
-static CGFloat leftValue;
-static CGFloat rightWidth;
-static BOOL showGestureAreas;
-static const CGFloat BCXCornerInset = 0;
-
-static inline UIInterfaceOrientation getAppOrientation();
-static void BCXUpdateDebugOverlay(void);
+static void BCXRunPanelItem(NSDictionary *item);
 
 static void settingsChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
     NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH]
         ?: [NSDictionary dictionaryWithContentsOfFile:LEGACY_PREF_PATH];
     enable = (BOOL)[dict[@"enable"] ? : @YES boolValue];
-    leftValue = (CGFloat)[dict[@"leftValue"] ? : @0.25 doubleValue];
-    rightWidth = (CGFloat)[dict[@"rightWidth"] ? : @0.25 doubleValue];
-    showGestureAreas = (BOOL)[dict[@"showGestureAreas"] boolValue];
-    dispatch_async(dispatch_get_main_queue(), ^{ BCXUpdateDebugOverlay(); });
+    dispatch_async(dispatch_get_main_queue(), ^{
+        BCXConfigureSideHandles(enable, ^(NSDictionary *item) { BCXRunPanelItem(item); });
+    });
 }
 
 static id gControl = nil;
@@ -331,15 +324,6 @@ static void BCXRunPanelItem(NSDictionary *item) {
     }
 }
 
-static inline UIInterfaceOrientation getAppOrientation() {
-    SpringBoard *sb = (SpringBoard *)UIApplication.sharedApplication;
-    if ([sb respondsToSelector:@selector(_frontMostAppOrientation)]) {
-        int orientation = [sb _frontMostAppOrientation];
-        if (orientation > 0) return (UIInterfaceOrientation)orientation;
-    }
-    return UIApplication.sharedApplication.activeInterfaceOrientation;
-}
-
 static NSString *BCXBundleIDForIconView(id iconView) {
     @try {
         for (NSString *name in @[@"applicationBundleIdentifier", @"bundleIdentifier"]) {
@@ -367,221 +351,6 @@ static NSString *BCXBundleIDForIconView(id iconView) {
 }
 %end
 
-static __weak UIPanGestureRecognizer *activeRecognizer;
-static NSArray<NSDictionary *> *activeItems;
-static BOOL activeCancelsTouches;
-static BOOL activeDelaysTouchesBegan;
-static BOOL activeDelaysTouchesEnded;
-static UIWindow *debugGestureWindow;
-static const void *BCXOwnRecognizerKey = &BCXOwnRecognizerKey;
-
-static NSString *BCXZoneKeyAtX(CGFloat x) {
-    CGFloat width = UIScreen.mainScreen.bounds.size.width;
-    if (width <= 0) return nil;
-    CGFloat position = x / width;
-    CGFloat leftEnd = MIN(0.48, BCXCornerInset + leftValue);
-    CGFloat rightStart = MAX(0.52, 1 - BCXCornerInset - rightWidth);
-    if (position >= BCXCornerInset && position <= leftEnd) return BCX_LEFT_ITEMS;
-    if (position >= rightStart && position <= 1 - BCXCornerInset) return BCX_RIGHT_ITEMS;
-    return nil;
-}
-
-static BOOL BCXClaimsX(CGFloat x) {
-    if (!enable || getAppOrientation() != UIInterfaceOrientationPortrait || BCXIsLocked()) return NO;
-    NSString *zoneKey = BCXZoneKeyAtX(x);
-    return zoneKey && BCXPanelItemsForKey(zoneKey).count > 0;
-}
-
-static void BCXUpdateDebugOverlay(void) {
-    if (!showGestureAreas) {
-        debugGestureWindow.hidden = YES;
-        debugGestureWindow = nil;
-        return;
-    }
-    UIWindowScene *scene = nil;
-    for (UIScene *candidate in UIApplication.sharedApplication.connectedScenes) {
-        if ([candidate isKindOfClass:UIWindowScene.class] && candidate.activationState == UISceneActivationStateForegroundActive) {
-            scene = (UIWindowScene *)candidate;
-            break;
-        }
-    }
-    if (!scene) return;
-    if (!debugGestureWindow) {
-        debugGestureWindow = [[UIWindow alloc] initWithWindowScene:scene];
-        debugGestureWindow.windowLevel = UIWindowLevelStatusBar + 100;
-        debugGestureWindow.userInteractionEnabled = NO;
-        UIViewController *controller = [UIViewController new];
-        controller.view.backgroundColor = UIColor.clearColor;
-        debugGestureWindow.rootViewController = controller;
-        for (NSInteger tag = 1; tag <= 2; tag++) {
-            UIView *area = [UIView new];
-            area.tag = tag;
-            area.layer.borderWidth = 1;
-            [controller.view addSubview:area];
-        }
-    }
-    CGRect bounds = scene.coordinateSpace.bounds;
-    CGFloat width = bounds.size.width;
-    CGFloat leftEnd = MIN(0.48, BCXCornerInset + leftValue);
-    CGFloat rightStart = MAX(0.52, 1 - BCXCornerInset - rightWidth);
-    UIView *left = [debugGestureWindow.rootViewController.view viewWithTag:1];
-    UIView *right = [debugGestureWindow.rootViewController.view viewWithTag:2];
-    left.frame = CGRectMake(width * BCXCornerInset, bounds.size.height - 24, width * (leftEnd - BCXCornerInset), 24);
-    right.frame = CGRectMake(width * rightStart, bounds.size.height - 24, width * (1 - BCXCornerInset - rightStart), 24);
-    left.backgroundColor = [UIColor.systemRedColor colorWithAlphaComponent:0.32];
-    left.layer.borderColor = UIColor.systemRedColor.CGColor;
-    right.backgroundColor = [UIColor.systemBlueColor colorWithAlphaComponent:0.32];
-    right.layer.borderColor = UIColor.systemBlueColor.CGColor;
-    debugGestureWindow.frame = bounds;
-    debugGestureWindow.hidden = NO;
-}
-
-static BOOL BCXBeginRecognizer(SBFluidSwitcherGestureManager *manager, UIPanGestureRecognizer *recognizer) {
-    if (!enable || getAppOrientation() != UIInterfaceOrientationPortrait || BCXIsLocked()) return NO;
-    if (![recognizer isKindOfClass:UIPanGestureRecognizer.class]) return NO;
-    CGPoint translation = [recognizer translationInView:nil];
-    CGPoint velocity = [recognizer velocityInView:nil];
-    BOOL clearlyHorizontal = fabs(translation.x) > 12 && fabs(translation.x) > fabs(translation.y) * 1.25;
-    clearlyHorizontal |= fabs(velocity.x) > 300 && fabs(velocity.x) > fabs(velocity.y) * 1.8;
-    if (clearlyHorizontal) return NO;
-    if (showGestureAreas && !debugGestureWindow) BCXUpdateDebugOverlay();
-    NSString *zoneKey = BCXZoneKeyAtX([recognizer locationInView:nil].x);
-    if (!zoneKey) return NO;
-    NSArray *items = BCXPanelItemsForKey(zoneKey);
-    if (!items.count) return NO;
-    if (activeRecognizer != recognizer) {
-        activeRecognizer = recognizer;
-        activeItems = items;
-        activeCancelsTouches = recognizer.cancelsTouchesInView;
-        activeDelaysTouchesBegan = recognizer.delaysTouchesBegan;
-        activeDelaysTouchesEnded = recognizer.delaysTouchesEnded;
-        recognizer.cancelsTouchesInView = YES;
-        recognizer.delaysTouchesBegan = YES;
-        recognizer.delaysTouchesEnded = YES;
-        [recognizer addTarget:manager action:@selector(bcx_handleGesture:)];
-        if (items.count > 1) {
-            if (!BCXBeginPanel(items, ^(NSDictionary *item) { BCXRunPanelItem(item); })) {
-                [recognizer removeTarget:manager action:@selector(bcx_handleGesture:)];
-                recognizer.cancelsTouchesInView = activeCancelsTouches;
-                recognizer.delaysTouchesBegan = activeDelaysTouchesBegan;
-                recognizer.delaysTouchesEnded = activeDelaysTouchesEnded;
-                activeRecognizer = nil;
-                activeItems = nil;
-                return NO;
-            }
-        }
-    }
-    return YES;
-}
-
-static BOOL BCXSuppressSystemSwipe(SBFluidSwitcherGestureManager *manager, id gesture) {
-    if (activeRecognizer) return YES;
-    @try {
-        id edgeGesture = [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"];
-        if ([edgeGesture respondsToSelector:@selector(locationInView:)]) {
-            CGPoint point = ((CGPoint (*)(id, SEL, id))objc_msgSend)(edgeGesture, @selector(locationInView:), nil);
-            if (BCXClaimsX(point.x)) {
-                BCXBeginRecognizer(manager, edgeGesture);
-                return YES;
-            }
-        }
-        if ([gesture respondsToSelector:@selector(locationInView:)]) {
-            CGPoint point = ((CGPoint (*)(id, SEL, id))objc_msgSend)(gesture, @selector(locationInView:), nil);
-            if (BCXClaimsX(point.x)) {
-                if ([edgeGesture isKindOfClass:UIPanGestureRecognizer.class]) BCXBeginRecognizer(manager, edgeGesture);
-                return YES;
-            }
-        }
-    } @catch (NSException *exception) { }
-    return NO;
-}
-
-static void BCXInstallOwnRecognizer(SBFluidSwitcherGestureManager *manager, SBGrabberTongue *tongue) {
-    @try {
-        UIView *container = [tongue valueForKey:@"_tongueContainer"];
-        if (![container isKindOfClass:UIView.class] || objc_getAssociatedObject(container, BCXOwnRecognizerKey)) return;
-        UIPanGestureRecognizer *recognizer = [[UIPanGestureRecognizer alloc] initWithTarget:manager action:@selector(bcx_handleOwnGesture:)];
-        recognizer.maximumNumberOfTouches = 1;
-        recognizer.cancelsTouchesInView = YES;
-        recognizer.delaysTouchesBegan = YES;
-        [container addGestureRecognizer:recognizer];
-        objc_setAssociatedObject(container, BCXOwnRecognizerKey, recognizer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    } @catch (NSException *exception) { }
-}
-
-%hook SBFluidSwitcherGestureManager
-
-- (void)setDeckGrabberTongue:(SBGrabberTongue *)tongue {
-    %orig;
-    BCXInstallOwnRecognizer(self, tongue);
-}
-
-%new
-- (void)bcx_handleOwnGesture:(UIPanGestureRecognizer *)recognizer {
-    if (recognizer.state == UIGestureRecognizerStateBegan && !BCXBeginRecognizer(self, recognizer)) {
-        recognizer.enabled = NO;
-        recognizer.enabled = YES;
-        return;
-    }
-    [self bcx_handleGesture:recognizer];
-}
-
-%new
-- (void)bcx_handleGesture:(UIPanGestureRecognizer *)recognizer {
-    if (activeRecognizer != recognizer) return;
-    UIGestureRecognizerState state = recognizer.state;
-    CGFloat distance = MAX(0, -[recognizer translationInView:nil].y);
-    if (state == UIGestureRecognizerStateChanged || state == UIGestureRecognizerStateBegan) {
-        if (activeItems.count > 1) BCXUpdatePanel(distance);
-    } else if (state == UIGestureRecognizerStateEnded ||
-               state == UIGestureRecognizerStateCancelled ||
-               state == UIGestureRecognizerStateFailed) {
-        CGFloat velocity = -[recognizer velocityInView:nil].y;
-        BOOL commit = state == UIGestureRecognizerStateEnded && (distance >= 80 || velocity >= 700);
-        if (activeItems.count > 1) BCXFinishPanel(commit);
-        else if (commit && activeItems.count == 1) BCXRunPanelItem(activeItems.firstObject);
-        [recognizer removeTarget:self action:@selector(bcx_handleGesture:)];
-        recognizer.cancelsTouchesInView = activeCancelsTouches;
-        recognizer.delaysTouchesBegan = activeDelaysTouchesBegan;
-        recognizer.delaysTouchesEnded = activeDelaysTouchesEnded;
-        activeRecognizer = nil;
-        activeItems = nil;
-    }
-}
-
-- (void)grabberTongueBeganPulling:(id)arg1 withDistance:(double)arg2 andVelocity:(double)arg3 {
-    if (!BCXSuppressSystemSwipe(self, nil)) %orig;
-}
-
-- (void)grabberTongueBeganPulling:(id)arg1 withDistance:(double)arg2 andVelocity:(double)arg3 andGesture:(id)arg4 {
-    if (!BCXSuppressSystemSwipe(self, arg4)) %orig;
-}
-%end
-
-
-%hook SBMainSwitcherViewController
-- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)recognizer {
-    if ([recognizer isKindOfClass:UIPanGestureRecognizer.class]) {
-        UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)recognizer;
-        CGPoint velocity = [pan velocityInView:nil];
-        if (velocity.y < 0 && -velocity.y > fabs(velocity.x) && BCXClaimsX([pan locationInView:nil].x)) return NO;
-    }
-    return %orig;
-}
-%end
-
-
-%hook SBFluidSwitcherGestureExclusionTrapezoid
-- (BOOL)shouldBeginGestureAtStartingPoint:(CGPoint)point velocity:(CGPoint)velocity bounds:(CGRect)bounds {
-    BOOL upward = velocity.y < 0 && -velocity.y > fabs(velocity.x);
-    if (upward && BCXClaimsX(point.x)) return NO;
-    return %orig;
-}
-
-- (BOOL)allowHorizontalSwipesOutsideTrapezoid {
-    return enable ? YES : %orig;
-}
-%end
 %ctor {
     %init;
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL,

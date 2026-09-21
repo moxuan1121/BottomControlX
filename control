@@ -3,9 +3,9 @@ Name: ShortcutPanel
 Depends: firmware (>= 11.0), mobilesubstrate, preferenceloader
 Conflicts: com.xcxiao.bottomcontrolx, com.ichitaso.bottomcontrolx
 Replaces: com.xcxiao.bottomcontrolx, com.ichitaso.bottomcontrolx
-Version: 1.0.1+panel21
+Version: 1.0.1+panel22
 Architecture: iphoneos-arm
-Description: iOS 15 roothide 底部上滑快捷面板 ShortcutPanel
+Description: iOS 15 roothide 侧边手柄快捷面板 ShortcutPanel
 Maintainer: moxuan1121
 Author: ichitaso/XCXiao; ShortcutPanel modifications by moxuan1121
 Section: Tweaks

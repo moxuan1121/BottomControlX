@@ -2,43 +2,11 @@
 #import <objc/message.h>
 #import <math.h>
 
-@interface UIApplication (SpringBoard)
-- (UIInterfaceOrientation)activeInterfaceOrientation;
-@end
-
 @interface SpringBoard : UIApplication
 + (id)sharedApplication;
 - (void)takeScreenshot;
 - (id)_accessibilityFrontMostApplication;
-- (int)_frontMostAppOrientation;
 - (void)_simulateLockButtonPress;
-@end
-
-@interface SBGrabberTongue : NSObject {
-    UIPanGestureRecognizer *_edgePullGestureRecognizer;
-    UIView *_tongueContainer;
-}
-@end
-
-@interface SBFluidSwitcherGestureManager : NSObject
-@property(retain, nonatomic) SBGrabberTongue *deckGrabberTongue;
-- (void)bcx_handleGesture:(UIPanGestureRecognizer *)recognizer;
-- (void)bcx_handleOwnGesture:(UIPanGestureRecognizer *)recognizer;
-@end
-
-@interface SBFluidSwitcherGestureExclusionTrapezoid : NSObject
-- (BOOL)allowHorizontalSwipesOutsideTrapezoid;
-- (BOOL)shouldBeginGestureAtStartingPoint:(CGPoint)point velocity:(CGPoint)velocity bounds:(CGRect)bounds;
-@end
-
-@interface SBMainSwitcherViewController : UIViewController
-- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)recognizer;
-@end
-
-@interface SBFluidSwitcherViewController : UIViewController @end
-@interface SBFluidSwitcherScreenEdgePanGestureRecognizer : NSObject {
-    SBFluidSwitcherViewController *_switcherViewController;
-}
 @end
 
 @interface SBControlCenterController : NSObject
@@ -47,7 +15,6 @@
 @end
 
 @interface SBCoverSheetSlidingViewController : UIViewController
-@property (retain, nonatomic) SBGrabberTongue *grabberTongue;
 - (CGPoint)_locationForGesture:(id)arg1;
 - (id)dismissGestureRecognizer;
 @end

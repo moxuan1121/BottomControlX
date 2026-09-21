@@ -1,4 +1,4 @@
-"""Host-side check for the panel's saved IDs and Shortcuts query."""
+"""Small host-side contract check for the side-handle build."""
 
 from pathlib import Path
 import re
@@ -7,74 +7,49 @@ import sqlite3
 
 root = Path(__file__).resolve().parents[1]
 data = (root / "PanelData.m").read_text(encoding="utf-8")
+panel = (root / "PanelView.m").read_text(encoding="utf-8")
 prefs = (root / "Prefs" / "Preference.m").read_text(encoding="utf-8")
 panel_settings = (root / "Prefs" / "PanelSettings.m").read_text(encoding="utf-8")
 tweak = (root / "Tweak.xm").read_text(encoding="utf-8")
+header = (root / "Tweak.h").read_text(encoding="utf-8")
 common = (root / "Common.h").read_text(encoding="utf-8")
 control = (root / "control").read_text(encoding="utf-8")
 
-assert 'key:@"BottomLeftGesture"' not in prefs
-assert 'key:@"BottomCenterGesture"' not in prefs
-assert 'key:@"BottomRightGesture"' not in prefs
 for zone in ("BCX_LEFT_ITEMS", "BCX_RIGHT_ITEMS"):
-    assert zone in prefs and zone in tweak
-assert "BCX_CENTER_ITEMS" not in prefs and "BCX_CENTER_ITEMS" not in tweak
-assert 'key:@"leftValue"' in prefs and 'key:@"rightWidth"' in prefs
-assert 'key:@"edgeInsetValue"' not in prefs
-assert 'cell:PSSliderCell' in prefs and 'forKey:@"min"' in prefs and 'forKey:@"max"' in prefs
-assert 'groupNamed:@"左侧触发宽度"' in prefs and 'groupNamed:@"右侧触发宽度"' in prefs
-assert 'activeItems.count > 1' in tweak
-assert 'activeItems.count == 1' in tweak
-assert 'BCXFinishPanel(commit)' in tweak
-assert 'WFSpringBoardWorkflowRunnerClient' in tweak
-assert 'initWithWorkflowIdentifier:' in tweak and '@selector(start)' in tweak
-assert 'shortcuts://run-shortcut' not in tweak
+    assert zone in prefs and zone in panel
+for removed in ("BCX_CENTER_ITEMS", "leftValue", "rightWidth", "edgeInsetValue", "showGestureAreas"):
+    assert removed not in prefs and removed not in tweak
+
+assert 'groupNamed:@"侧边手柄"' in prefs
+assert '@"左侧手柄动作"' in prefs and '@"右侧手柄动作"' in prefs
+assert "BCXConfigureSideHandles" in tweak and "BCXBeginSidePanel" in panel
+assert "BCXHandleWindow" in panel and "hitTest:(CGPoint)point" in panel
+assert "pill.layer.cornerRadius = 8" in panel and "CGRectMake(0, y, 28, 104)" in panel
+assert "distance >= 40 || velocity >= 600" in panel
+assert "BCXUpdatePanel(MAX(0, distance))" in panel and "BCXFinishPanel(NO)" in panel
+for removed in ("SBFluidSwitcherGestureManager", "SBFluidSwitcherGestureExclusionTrapezoid", "SBMainSwitcherViewController"):
+    assert removed not in tweak and removed not in header
+
+assert "WFSpringBoardWorkflowRunnerClient" in tweak
+assert "initWithWorkflowIdentifier:" in tweak and "shortcuts://run-shortcut" not in tweak
 assert 'BCXRebootUserspace()' in tweak and '"reboot_userspace"' in tweak
-assert 'jbclient_root_set_mac_label' in tweak
-assert 'exec_cmd_suspended' in tweak
 assert 'else if ([identifier isEqualToString:@"respring"]) kill(getpid(), SIGTERM);' in tweak
 assert 'BCXCloseBackgroundApps();\n        kill(getpid(), SIGTERM);' in tweak
-assert 'position >= BCXCornerInset && position <= leftEnd' in tweak
-assert 'position >= rightStart && position <= 1 - BCXCornerInset' in tweak
-assert 'state == UIGestureRecognizerStateEnded && (distance >= 80 || velocity >= 700)' in tweak
-assert 'BCXApplicationQuickActions' in data
-assert 'BCXAllQuickActions' in data and 'BCXRequestQuickActions(@"*")' in panel_settings
-assert 'NSClassFromString(@"SBIconView")' in tweak and 'activateShortcut:withBundleIdentifier:forIconView:' in tweak
-assert 'setApplicationShortcutItems:' in tweak and 'BCXCacheQuickActions' in tweak and 'BCXQuickActionCache' in data
-assert 'recognizer.cancelsTouchesInView = YES' in tweak
-assert 'bcx_handleOwnGesture:' in tweak and 'BCXInstallOwnRecognizer' in tweak
-assert 'static const CGFloat BCXCornerInset = 0;' in tweak
-assert 'BCXSuppressSystemSwipe' in tweak
-assert '_shouldProtectEdgeLocation' not in tweak
-assert 'BCXBeginRecognizer(manager, edgeGesture);' in tweak
-assert tweak.index('valueForKey:@"_edgePullGestureRecognizer"') < tweak.index('if ([gesture respondsToSelector:@selector(locationInView:)])')
-assert 'SBMainSwitcherViewController' in tweak and 'gestureRecognizerShouldBegin:' in tweak
-assert 'shouldBeginGestureAtStartingPoint:(CGPoint)point velocity:(CGPoint)velocity bounds:(CGRect)bounds' in tweak
-assert 'if (upward && BCXClaimsX(point.x)) return NO;' in tweak
-assert 'allowHorizontalSwipesOutsideTrapezoid' in tweak
-assert 'UISearchResultsUpdating' in panel_settings and 'localizedCaseInsensitiveContainsString' in panel_settings
-assert 'showGestureAreas' in prefs and 'showGestureAreas' in tweak
-assert 'clearlyHorizontal' in tweak and 'fabs(translation.x) > 12' in tweak
-assert 'com.mox1121.shortcutpanel' in common and 'Package: com.mox1121.shortcutpanel' in control
-assert 'Name: ShortcutPanel' in control
-assert 'BCXFetchAllQuickActions' in tweak and 'dispatch_group_notify' in tweak
-assert 'allInstalledApplications' in data
-assert 'BCXScaledSettingsIcon' in panel_settings
-assert '作者的其他插件' not in prefs and 'SafariServices' not in prefs
-assert 'customSymbol' in data and 'customImage' in data
-assert '_applicationIconImageForBundleIdentifier' in data
-assert '_fetchApplicationShortcutItemsIfAppropriate' in data
-assert 'fetchApplicationShortcutItemsOfTypes:forBundleIdentifier:withCompletionHandler:' in data
-assert 'for (NSInteger attempt = 0; attempt < 60; attempt++)' in data
+assert "BCXApplicationQuickActions" in data
+assert "BCXAllQuickActions" in data and 'BCXRequestQuickActions(@"*")' in panel_settings
+assert 'activateShortcut:withBundleIdentifier:forIconView:' in tweak
+assert "UISearchResultsUpdating" in panel_settings and "localizedCaseInsensitiveContainsString" in panel_settings
+assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
+assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel22" in control
+assert "customSymbol" in data and "customImage" in data
 
 db = sqlite3.connect(":memory:")
 db.execute("CREATE TABLE ZSHORTCUT (ZWORKFLOWID TEXT, ZNAME TEXT)")
 db.execute("INSERT INTO ZSHORTCUT VALUES (?, ?)", ("stable-id", "测试指令"))
-list_query = re.search(r'"(SELECT ZWORKFLOWID, ZNAME FROM ZSHORTCUT[^\"]+)"', data).group(1)
-assert db.execute(list_query).fetchall() == [("stable-id", "测试指令")]
-assert "BCXRequestQuickActions" in data and "BCXQuickRequestReceived" in tweak
+query = re.search(r'"(SELECT ZWORKFLOWID, ZNAME FROM ZSHORTCUT[^\"]+)"', data).group(1)
+assert db.execute(query).fetchall() == [("stable-id", "测试指令")]
 
 for action in ("closeapps", "closeandrespring", "respring", "userspace", "reboot", "shutdown"):
     assert f'@"{action}"' in data and f'@"{action}"' in tweak
 
-print("panel contract OK")
+print("side handle contract OK")

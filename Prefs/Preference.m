@@ -19,18 +19,6 @@
 
 @implementation BottomControlXController
 
-- (PSSpecifier *)sliderNamed:(NSString *)name key:(NSString *)key defaultValue:(CGFloat)defaultValue minimum:(CGFloat)minimum maximum:(CGFloat)maximum {
-    PSSpecifier *item = [PSSpecifier preferenceSpecifierNamed:name target:self
-        set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
-        detail:Nil cell:PSSliderCell edit:Nil];
-    [item setProperty:key forKey:@"key"];
-    [item setProperty:@(defaultValue) forKey:@"default"];
-    [item setProperty:@(minimum) forKey:@"min"];
-    [item setProperty:@(maximum) forKey:@"max"];
-    [item setProperty:@YES forKey:@"showValue"];
-    return item;
-}
-
 - (PSSpecifier *)groupNamed:(NSString *)name footer:(NSString *)footer {
     PSSpecifier *item = name
         ? [PSSpecifier preferenceSpecifierNamed:name target:self set:Nil get:Nil detail:Nil cell:PSGroupCell edit:Nil]
@@ -57,20 +45,10 @@
     [item setProperty:@YES forKey:@"default"];
     [items addObject:item];
 
-    [items addObject:[self groupNamed:@"左、右上滑区域"
-        footer:@"只在避开屏幕角落和底部中央后的左右区域触发。每个区域只选一项时直接运行，选择多项时显示面板；其他位置保留系统手势。"]];
-    [items addObject:[self buttonNamed:@"左侧区域动作" action:@selector(openLeftSettings)]];
-    [items addObject:[self buttonNamed:@"右侧区域动作" action:@selector(openRightSettings)]];
-    [items addObject:[self groupNamed:@"左侧触发宽度" footer:nil]];
-    [items addObject:[self sliderNamed:nil key:@"leftValue" defaultValue:0.25 minimum:0.10 maximum:0.40]];
-    [items addObject:[self groupNamed:@"右侧触发宽度" footer:nil]];
-    [items addObject:[self sliderNamed:nil key:@"rightWidth" defaultValue:0.25 minimum:0.10 maximum:0.40]];
-    PSSpecifier *debugAreas = [PSSpecifier preferenceSpecifierNamed:@"显示手势区域（调试）" target:self
-        set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
-        detail:Nil cell:PSSwitchCell edit:Nil];
-    [debugAreas setProperty:@"showGestureAreas" forKey:@"key"];
-    [debugAreas setProperty:@NO forKey:@"default"];
-    [items addObject:debugAreas];
+    [items addObject:[self groupNamed:@"侧边手柄"
+        footer:@"配置动作后显示对应的圆角手柄。按住手柄向屏幕内拖动呼出面板，往回拖可取消。"]];
+    [items addObject:[self buttonNamed:@"左侧手柄动作" action:@selector(openLeftSettings)]];
+    [items addObject:[self buttonNamed:@"右侧手柄动作" action:@selector(openRightSettings)]];
 
     [items addObject:[self groupNamed:@"维护" footer:nil]];
     [items addObject:[self buttonNamed:@"重置全部设置" action:@selector(resetSettings)]];
@@ -100,8 +78,8 @@
     return specifier.properties[@"default"];
 }
 
-- (void)openLeftSettings { [self openZone:BCX_LEFT_ITEMS title:@"左侧区域动作"]; }
-- (void)openRightSettings { [self openZone:BCX_RIGHT_ITEMS title:@"右侧区域动作"]; }
+- (void)openLeftSettings { [self openZone:BCX_LEFT_ITEMS title:@"左侧手柄动作"]; }
+- (void)openRightSettings { [self openZone:BCX_RIGHT_ITEMS title:@"右侧手柄动作"]; }
 - (void)openZone:(NSString *)key title:(NSString *)title {
     [self.navigationController pushViewController:[[BCXPanelSettingsController alloc] initWithZoneKey:key title:title] animated:YES];
 }
