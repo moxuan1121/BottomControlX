@@ -8,7 +8,6 @@
 #import <dlfcn.h>
 #import <objc/runtime.h>
 #import <stdint.h>
-#import <stdlib.h>
 
 static BOOL enable;
 static CGFloat leftValue;
@@ -291,91 +290,6 @@ static BOOL BCXPowerAction(BOOL reboot) {
     return YES;
 }
 
-static id BCXSingletonRespondingTo(SEL selector) {
-    int count = objc_getClassList(NULL, 0);
-    if (count <= 0) return nil;
-    Class *classes = (__unsafe_unretained Class *)calloc((size_t)count, sizeof(Class));
-    count = objc_getClassList(classes, count);
-    id result = nil;
-    for (int i = 0; i < count && !result; i++) {
-        Class cls = classes[i];
-        for (NSString *name in @[@"sharedInstance", @"sharedController", @"defaultManager", @"sharedRecorder", @"sharedFlashlight"]) {
-            SEL shared = NSSelectorFromString(name);
-            if (![cls respondsToSelector:shared]) continue;
-            @try {
-                id candidate = ((id (*)(id, SEL))objc_msgSend)(cls, shared);
-                if ([candidate respondsToSelector:selector]) { result = candidate; break; }
-            } @catch (NSException *exception) { }
-        }
-    }
-    free(classes);
-    return result;
-}
-
-static BOOL BCXSendNoArgument(NSString *name) {
-    SEL selector = NSSelectorFromString(name);
-    id receiver = BCXSingletonRespondingTo(selector);
-    if (!receiver) return NO;
-    ((void (*)(id, SEL))objc_msgSend)(receiver, selector);
-    return YES;
-}
-
-static BOOL BCXSendObjectArgument(NSString *name, id argument) {
-    SEL selector = NSSelectorFromString(name);
-    id receiver = BCXSingletonRespondingTo(selector);
-    if (!receiver) return NO;
-    ((void (*)(id, SEL, id))objc_msgSend)(receiver, selector, argument);
-    return YES;
-}
-
-static BOOL BCXOpenURL(NSString *value) {
-    NSURL *url = [NSURL URLWithString:value];
-    if (!url) return NO;
-    UIApplication *application = UIApplication.sharedApplication;
-    if (![application canOpenURL:url]) return NO;
-    [application openURL:url options:@{} completionHandler:nil];
-    return YES;
-}
-
-static BOOL BCXCopyScreenshot(void) {
-    UIImage *(*createImage)(void) = (UIImage *(*)(void))dlsym(RTLD_DEFAULT, "__UICreateScreenUIImage");
-    UIImage *image = createImage ? createImage() : nil;
-    if (!image) return NO;
-    UIPasteboard.generalPasteboard.image = image;
-    return YES;
-}
-
-static BOOL BCXMediaCommand(unsigned command) {
-    void *handle = dlopen("/System/Library/PrivateFrameworks/MediaRemote.framework/MediaRemote", RTLD_LAZY);
-    void (*send)(unsigned, CFDictionaryRef) = handle ? (void (*)(unsigned, CFDictionaryRef))dlsym(handle, "MRMediaRemoteSendCommand") : NULL;
-    if (!send) { if (handle) dlclose(handle); return NO; }
-    send(command, NULL);
-    dlclose(handle);
-    return YES;
-}
-
-static BOOL BCXToggleBooleanSelector(NSString *getterName, NSString *setterName, NSInteger forcedValue) {
-    SEL getter = NSSelectorFromString(getterName);
-    SEL setter = NSSelectorFromString(setterName);
-    id receiver = BCXSingletonRespondingTo(setter);
-    if (!receiver) return NO;
-    BOOL value = forcedValue >= 0 ? forcedValue : !([receiver respondsToSelector:getter] && ((BOOL (*)(id, SEL))objc_msgSend)(receiver, getter));
-    ((void (*)(id, SEL, BOOL))objc_msgSend)(receiver, setter, value);
-    return YES;
-}
-
-static BOOL BCXReopenCurrentApplication(void) {
-    SpringBoard *springBoard = (SpringBoard *)UIApplication.sharedApplication;
-    id application = [springBoard _accessibilityFrontMostApplication];
-    SEL bundleSelector = @selector(bundleIdentifier);
-    NSString *bundleID = [application respondsToSelector:bundleSelector]
-        ? ((id (*)(id, SEL))objc_msgSend)(application, bundleSelector) : nil;
-    SEL launch = @selector(launchApplicationWithIdentifier:suspended:);
-    if (!bundleID.length || ![springBoard respondsToSelector:launch]) return NO;
-    ((void (*)(id, SEL, id, BOOL))objc_msgSend)(springBoard, launch, bundleID, NO);
-    return YES;
-}
-
 static void BCXRunPanelItem(NSDictionary *item) {
     NSString *kind = item[@"kind"];
     NSString *identifier = item[@"id"];
@@ -397,62 +311,15 @@ static void BCXRunPanelItem(NSDictionary *item) {
         return;
     }
     if (![kind isEqualToString:@"builtin"]) return;
-    BOOL handled = YES;
-    if ([identifier isEqualToString:@"home"]) handled = BCXSendNoArgument(@"backToHomescreen") || BCXSendNoArgument(@"handleHomeButtonSinglePressUp");
-    else if ([identifier isEqualToString:@"switcher"]) {
-        SEL selector = @selector(toggleMainSwitcherNoninteractivelyWithSource:animated:);
-        id receiver = BCXSingletonRespondingTo(selector);
-        handled = receiver != nil;
-        if (receiver) ((void (*)(id, SEL, NSInteger, BOOL))objc_msgSend)(receiver, selector, 0, YES);
-    } else if ([identifier isEqualToString:@"control"]) showControlCenter();
+    if ([identifier isEqualToString:@"control"]) showControlCenter();
     else if ([identifier isEqualToString:@"notification"]) [[%c(SBCoverSheetPresentationManager) sharedInstance] setCoverSheetPresented:YES animated:YES withCompletion:nil];
-    else if ([identifier isEqualToString:@"spotlight"]) handled = BCXSendNoArgument(@"toggleSpotlight");
-    else if ([identifier isEqualToString:@"siri"]) handled = BCXSendNoArgument(@"activateAssistant") || BCXSendObjectArgument(@"handleSiriButtonDownEventFromSource:", @"ShortcutPanel");
     else if ([identifier isEqualToString:@"screenshot"]) [(SpringBoard *)UIApplication.sharedApplication takeScreenshot];
-    else if ([identifier isEqualToString:@"screenshot_copy"]) handled = BCXCopyScreenshot();
-    else if ([identifier isEqualToString:@"screenshot_edit"]) [(SpringBoard *)UIApplication.sharedApplication takeScreenshot];
-    else if ([identifier isEqualToString:@"recordscreen"]) handled = BCXSendNoArgument(@"toggleShowUIAction");
-    else if ([identifier isEqualToString:@"recordscreen_mic"]) handled = BCXSendNoArgument(@"toggleStartMicRecordingAction");
     else if ([identifier isEqualToString:@"lock"]) [(SpringBoard *)UIApplication.sharedApplication _simulateLockButtonPress];
-    else if ([identifier isEqualToString:@"reachability"]) handled = BCXSendNoArgument(@"toggleReachability");
-    else if ([identifier isEqualToString:@"accessibility"]) handled = BCXSendNoArgument(@"performTriplePressActions");
-    else if ([identifier isEqualToString:@"applepay"]) handled = BCXSendNoArgument(@"performDoublePressActions");
-    else if ([identifier isEqualToString:@"scrolltop"]) handled = BCXSendObjectArgument(@"_statusBarScrollToTop:", nil);
-    else if ([identifier isEqualToString:@"darkmode"]) handled = BCXSendNoArgument(@"toggleDarkMode");
-    else if ([identifier isEqualToString:@"lowpower"]) {
-        SEL get = @selector(getPowerMode), set = @selector(setPowerMode:fromSource:);
-        id receiver = BCXSingletonRespondingTo(set);
-        handled = receiver != nil;
-        if (receiver) ((void (*)(id, SEL, NSInteger, id))objc_msgSend)(receiver, set,
-            ((NSInteger (*)(id, SEL))objc_msgSend)(receiver, get) ? 0 : 1, @"ShortcutPanel");
-    } else if ([identifier isEqualToString:@"system_mute"]) handled = BCXToggleBooleanSelector(@"isRingerMuted", @"setRingerMuted:", -1);
-    else if ([identifier isEqualToString:@"media_mute"]) handled = BCXSendNoArgument(@"toggleMute");
-    else if ([identifier isEqualToString:@"volume_up"]) handled = BCXSendNoArgument(@"volumeStepUp");
-    else if ([identifier isEqualToString:@"volume_down"]) handled = BCXSendNoArgument(@"volumeStepDown");
-    else if ([identifier isEqualToString:@"location"]) handled = BCXToggleBooleanSelector(@"locationServicesEnabled", @"setLocationServicesEnabled:", -1);
-    else if ([identifier isEqualToString:@"vpn"]) handled = BCXSendNoArgument(@"toggleVPN") || BCXSendNoArgument(@"toggleVPNConnection");
-    else if ([identifier isEqualToString:@"rotation"]) handled = BCXToggleBooleanSelector(@"isUserLocked", @"setUserLocked:", -1);
-    else if ([identifier isEqualToString:@"rotation_on"]) handled = BCXToggleBooleanSelector(@"isUserLocked", @"setUserLocked:", 1);
-    else if ([identifier isEqualToString:@"rotation_off"]) handled = BCXToggleBooleanSelector(@"isUserLocked", @"setUserLocked:", 0);
-    else if ([identifier isEqualToString:@"flashlight"]) {
-        SEL level = @selector(level), setLevel = @selector(setLevel:);
-        id receiver = BCXSingletonRespondingTo(setLevel);
-        handled = receiver != nil;
-        if (receiver) ((void (*)(id, SEL, double))objc_msgSend)(receiver, setLevel,
-            ((double (*)(id, SEL))objc_msgSend)(receiver, level) > 0 ? 0.0 : 1.0);
-    }
     else if ([identifier isEqualToString:@"closeapps"]) BCXCloseBackgroundApps();
-    else if ([identifier isEqualToString:@"reopen"]) handled = BCXReopenCurrentApplication();
-    else if ([identifier isEqualToString:@"respring"] || [identifier isEqualToString:@"respring_sb"]) kill(getpid(), SIGTERM);
+    else if ([identifier isEqualToString:@"respring"]) kill(getpid(), SIGTERM);
     else if ([identifier isEqualToString:@"closeandrespring"]) {
         BCXCloseBackgroundApps();
         kill(getpid(), SIGTERM);
-    }
-    else if ([identifier isEqualToString:@"respring_all"]) {
-        BCXCloseBackgroundApps();
-        kill(getpid(), SIGTERM);
-    } else if ([identifier isEqualToString:@"safemode"]) {
-        kill(getpid(), SIGSEGV);
     } else if ([identifier isEqualToString:@"userspace"]) {
         if (!BCXRebootUserspace()) BCXAlert(@"无法启动用户空间重启工具。");
     } else if ([identifier isEqualToString:@"reboot"]) {
@@ -461,15 +328,7 @@ static void BCXRunPanelItem(NSDictionary *item) {
         if (!BCXPowerAction(NO)) BCXAlert(@"无法关闭手机。");
     } else if ([identifier isEqualToString:@"uicache"]) {
         if (!BCXSpawn(@"/usr/bin/uicache", @"-a")) BCXAlert(@"无法启动图标刷新工具。");
-    } else if ([identifier isEqualToString:@"media_playpause"]) handled = BCXMediaCommand(0);
-    else if ([identifier isEqualToString:@"media_previous"]) handled = BCXMediaCommand(3);
-    else if ([identifier isEqualToString:@"media_next"]) handled = BCXMediaCommand(5);
-    else if ([identifier isEqualToString:@"alipay_scan"]) handled = BCXOpenURL(@"alipay3dtouch://platformapi/startapp?appId=10000007&showOthers=YES&sourceId=3dtouch");
-    else if ([identifier isEqualToString:@"alipay_pay"]) handled = BCXOpenURL(@"alipay3dtouch://platformapi/startapp?appId=20000056&src=3dtouch");
-    else if ([identifier isEqualToString:@"wechat_scan"]) handled = BCXOpenURL(@"weixin://scanqrcode");
-    else if ([identifier isEqualToString:@"wechat_pay"]) handled = BCXOpenURL(@"weixin://widget/pay");
-    else handled = NO;
-    if (!handled) BCXAlert(@"当前系统没有找到这个基础动作的可用接口。");
+    }
 }
 
 static inline UIInterfaceOrientation getAppOrientation() {

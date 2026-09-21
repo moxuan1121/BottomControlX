@@ -171,7 +171,7 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
     cell.imageView.tintColor = UIColor.systemBlueColor;
     NSInteger smallIcon = MIN(30, MAX(18, BCXIconSize() * 0.6));
     if (self.mode == BCXPickerModePanel && path.section == 1) {
-        cell.textLabel.text = @[@"基础动作", @"快捷指令", @"应用快捷方式"][path.row];
+        cell.textLabel.text = @[@"系统与越狱动作", @"快捷指令", @"应用快捷方式"][path.row];
         cell.imageView.image = [UIImage systemImageNamed:@[@"gearshape", @"square.stack.3d.up", @"app.badge"][path.row]
                                            withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:smallIcon]];
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
@@ -208,7 +208,7 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
         if (path.section == 2) return;
         if (path.section != 1) return;
         BCXPickerMode mode = [@[@(BCXPickerModeBuiltins), @(BCXPickerModeShortcuts), @(BCXPickerModeApps)][path.row] integerValue];
-        NSString *title = @[@"基础动作", @"快捷指令", @"应用快捷方式"][path.row];
+        NSString *title = @[@"系统与越狱动作", @"快捷指令", @"应用快捷方式"][path.row];
         BCXPanelSettingsController *picker = [[BCXPanelSettingsController alloc] initWithMode:mode title:title];
         picker.zoneKey = self.zoneKey;
         [self.navigationController pushViewController:picker animated:YES];
