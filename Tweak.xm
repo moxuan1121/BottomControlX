@@ -510,16 +510,6 @@ static void BCXInstallOwnRecognizer(SBFluidSwitcherGestureManager *manager, SBGr
     BCXInstallOwnRecognizer(self, tongue);
 }
 
-- (BOOL)_shouldProtectEdgeLocation:(CGPoint)location edge:(NSUInteger)edge {
-    if (BCXClaimsX(location.x)) return YES;
-    return %orig;
-}
-
-- (BOOL)_shouldProtectEdgeLocation:(CGPoint)location {
-    if (BCXClaimsX(location.x)) return YES;
-    return %orig;
-}
-
 %new
 - (void)bcx_handleOwnGesture:(UIPanGestureRecognizer *)recognizer {
     if (recognizer.state == UIGestureRecognizerStateBegan && !BCXBeginRecognizer(self, recognizer)) {

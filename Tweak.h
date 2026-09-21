@@ -24,8 +24,6 @@
 @property(retain, nonatomic) SBGrabberTongue *deckGrabberTongue;
 - (void)bcx_handleGesture:(UIPanGestureRecognizer *)recognizer;
 - (void)bcx_handleOwnGesture:(UIPanGestureRecognizer *)recognizer;
-- (BOOL)_shouldProtectEdgeLocation:(CGPoint)location;
-- (BOOL)_shouldProtectEdgeLocation:(CGPoint)location edge:(NSUInteger)edge;
 @end
 
 @interface SBFluidSwitcherGestureExclusionTrapezoid : NSObject

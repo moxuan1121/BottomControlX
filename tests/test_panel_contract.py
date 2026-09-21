@@ -44,9 +44,8 @@ assert 'setApplicationShortcutItems:' in tweak and 'BCXCacheQuickActions' in twe
 assert 'recognizer.cancelsTouchesInView = YES' in tweak
 assert 'bcx_handleOwnGesture:' in tweak and 'BCXInstallOwnRecognizer' in tweak
 assert 'static const CGFloat BCXCornerInset = 0;' in tweak
-assert '_shouldProtectEdgeLocation:(CGPoint)location edge:(NSUInteger)edge' in tweak
-assert '_shouldProtectEdgeLocation:(CGPoint)location {' in tweak
 assert 'BCXSuppressSystemSwipe' in tweak
+assert '_shouldProtectEdgeLocation' not in tweak
 assert 'SBMainSwitcherViewController' in tweak and 'gestureRecognizerShouldBegin:' in tweak
 assert 'shouldBeginGestureAtStartingPoint:(CGPoint)point velocity:(CGPoint)velocity bounds:(CGRect)bounds' in tweak
 assert 'if (upward && BCXClaimsX(point.x)) return NO;' in tweak
