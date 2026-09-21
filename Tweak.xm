@@ -8,6 +8,7 @@
 #import <dlfcn.h>
 #import <objc/runtime.h>
 #import <stdint.h>
+#import <stdlib.h>
 
 static BOOL enable;
 static CGFloat leftValue;
@@ -290,34 +291,30 @@ static BOOL BCXPowerAction(BOOL reboot) {
     return YES;
 }
 
-static id BCXKnownSingletonRespondingTo(SEL selector) {
-    UIApplication *application = UIApplication.sharedApplication;
-    if ([application respondsToSelector:selector]) return application;
-    NSArray<NSString *> *classNames = @[
-        @"SBUIController", @"SBMainSwitcherController", @"SBMainSwitcherViewController",
-        @"SBSearchController", @"SBAssistantController", @"SBReachabilityManager",
-        @"SBHomeHardwareButton", @"SBLockHardwareButton", @"SBVolumeControl",
-        @"SBOrientationLockManager", @"SBBatterySaverController", @"SBFlashlightController",
-        @"AVFlashlight", @"CCUIRecordScreenShortcut", @"RPControlCenterModule"
-    ];
-    for (NSString *className in classNames) {
-        Class cls = NSClassFromString(className);
-        if (!cls) continue;
+static id BCXSingletonRespondingTo(SEL selector) {
+    int count = objc_getClassList(NULL, 0);
+    if (count <= 0) return nil;
+    Class *classes = (__unsafe_unretained Class *)calloc((size_t)count, sizeof(Class));
+    count = objc_getClassList(classes, count);
+    id result = nil;
+    for (int i = 0; i < count && !result; i++) {
+        Class cls = classes[i];
         for (NSString *name in @[@"sharedInstance", @"sharedController", @"defaultManager", @"sharedRecorder", @"sharedFlashlight"]) {
             SEL shared = NSSelectorFromString(name);
-            if (!class_getClassMethod(cls, shared)) continue;
+            if (![cls respondsToSelector:shared]) continue;
             @try {
                 id candidate = ((id (*)(id, SEL))objc_msgSend)(cls, shared);
-                if ([candidate respondsToSelector:selector]) return candidate;
+                if ([candidate respondsToSelector:selector]) { result = candidate; break; }
             } @catch (NSException *exception) { }
         }
     }
-    return nil;
+    free(classes);
+    return result;
 }
 
 static BOOL BCXSendNoArgument(NSString *name) {
     SEL selector = NSSelectorFromString(name);
-    id receiver = BCXKnownSingletonRespondingTo(selector);
+    id receiver = BCXSingletonRespondingTo(selector);
     if (!receiver) return NO;
     ((void (*)(id, SEL))objc_msgSend)(receiver, selector);
     return YES;
@@ -325,7 +322,7 @@ static BOOL BCXSendNoArgument(NSString *name) {
 
 static BOOL BCXSendObjectArgument(NSString *name, id argument) {
     SEL selector = NSSelectorFromString(name);
-    id receiver = BCXKnownSingletonRespondingTo(selector);
+    id receiver = BCXSingletonRespondingTo(selector);
     if (!receiver) return NO;
     ((void (*)(id, SEL, id))objc_msgSend)(receiver, selector, argument);
     return YES;
@@ -360,7 +357,7 @@ static BOOL BCXMediaCommand(unsigned command) {
 static BOOL BCXToggleBooleanSelector(NSString *getterName, NSString *setterName, NSInteger forcedValue) {
     SEL getter = NSSelectorFromString(getterName);
     SEL setter = NSSelectorFromString(setterName);
-    id receiver = BCXKnownSingletonRespondingTo(setter);
+    id receiver = BCXSingletonRespondingTo(setter);
     if (!receiver) return NO;
     BOOL value = forcedValue >= 0 ? forcedValue : !([receiver respondsToSelector:getter] && ((BOOL (*)(id, SEL))objc_msgSend)(receiver, getter));
     ((void (*)(id, SEL, BOOL))objc_msgSend)(receiver, setter, value);
@@ -404,7 +401,7 @@ static void BCXRunPanelItem(NSDictionary *item) {
     if ([identifier isEqualToString:@"home"]) handled = BCXSendNoArgument(@"backToHomescreen") || BCXSendNoArgument(@"handleHomeButtonSinglePressUp");
     else if ([identifier isEqualToString:@"switcher"]) {
         SEL selector = @selector(toggleMainSwitcherNoninteractivelyWithSource:animated:);
-        id receiver = BCXKnownSingletonRespondingTo(selector);
+        id receiver = BCXSingletonRespondingTo(selector);
         handled = receiver != nil;
         if (receiver) ((void (*)(id, SEL, NSInteger, BOOL))objc_msgSend)(receiver, selector, 0, YES);
     } else if ([identifier isEqualToString:@"control"]) showControlCenter();
@@ -424,7 +421,7 @@ static void BCXRunPanelItem(NSDictionary *item) {
     else if ([identifier isEqualToString:@"darkmode"]) handled = BCXSendNoArgument(@"toggleDarkMode");
     else if ([identifier isEqualToString:@"lowpower"]) {
         SEL get = @selector(getPowerMode), set = @selector(setPowerMode:fromSource:);
-        id receiver = BCXKnownSingletonRespondingTo(set);
+        id receiver = BCXSingletonRespondingTo(set);
         handled = receiver != nil;
         if (receiver) ((void (*)(id, SEL, NSInteger, id))objc_msgSend)(receiver, set,
             ((NSInteger (*)(id, SEL))objc_msgSend)(receiver, get) ? 0 : 1, @"ShortcutPanel");
@@ -439,7 +436,7 @@ static void BCXRunPanelItem(NSDictionary *item) {
     else if ([identifier isEqualToString:@"rotation_off"]) handled = BCXToggleBooleanSelector(@"isUserLocked", @"setUserLocked:", 0);
     else if ([identifier isEqualToString:@"flashlight"]) {
         SEL level = @selector(level), setLevel = @selector(setLevel:);
-        id receiver = BCXKnownSingletonRespondingTo(setLevel);
+        id receiver = BCXSingletonRespondingTo(setLevel);
         handled = receiver != nil;
         if (receiver) ((void (*)(id, SEL, double))objc_msgSend)(receiver, setLevel,
             ((double (*)(id, SEL))objc_msgSend)(receiver, level) > 0 ? 0.0 : 1.0);
