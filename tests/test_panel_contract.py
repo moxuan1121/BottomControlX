@@ -32,7 +32,7 @@ assert 'shortcuts://run-shortcut' not in tweak
 assert 'BCXRebootUserspace()' in tweak and '"reboot_userspace"' in tweak
 assert 'jbclient_root_set_mac_label' in tweak
 assert 'exec_cmd_suspended' in tweak
-assert 'else if ([identifier isEqualToString:@"respring"]) kill(getpid(), SIGTERM);' in tweak
+assert '[identifier isEqualToString:@"respring_sb"]' in tweak
 assert 'BCXCloseBackgroundApps();\n        kill(getpid(), SIGTERM);' in tweak
 assert 'position >= BCXCornerInset && position <= leftEnd' in tweak
 assert 'position >= rightStart && position <= 1 - BCXCornerInset' in tweak
@@ -48,6 +48,12 @@ assert 'BCXSuppressSystemSwipe' in tweak
 assert '_shouldProtectEdgeLocation' not in tweak
 assert 'BCXBeginRecognizer(manager, edgeGesture);' in tweak
 assert tweak.index('valueForKey:@"_edgePullGestureRecognizer"') < tweak.index('if ([gesture respondsToSelector:@selector(locationInView:)])')
+for action_id in ('home', 'switcher', 'spotlight', 'screenshot_copy', 'recordscreen_mic',
+                  'darkmode', 'lowpower', 'vpn', 'rotation_on', 'flashlight', 'safemode',
+                  'reopen', 'media_playpause', 'alipay_scan', 'wechat_pay'):
+    assert f'@"id":@"{action_id}"' in data
+assert data.count('@"kind":@"builtin"') == 45
+assert '@"id":@"closeandrespring"' not in data
 assert 'SBMainSwitcherViewController' in tweak and 'gestureRecognizerShouldBegin:' in tweak
 assert 'shouldBeginGestureAtStartingPoint:(CGPoint)point velocity:(CGPoint)velocity bounds:(CGRect)bounds' in tweak
 assert 'if (upward && BCXClaimsX(point.x)) return NO;' in tweak
@@ -74,7 +80,7 @@ list_query = re.search(r'"(SELECT ZWORKFLOWID, ZNAME FROM ZSHORTCUT[^\"]+)"', da
 assert db.execute(list_query).fetchall() == [("stable-id", "测试指令")]
 assert "BCXRequestQuickActions" in data and "BCXQuickRequestReceived" in tweak
 
-for action in ("closeapps", "closeandrespring", "respring", "userspace", "reboot", "shutdown"):
+for action in ("closeapps", "respring", "respring_all", "respring_sb", "userspace", "reboot", "shutdown"):
     assert f'@"{action}"' in data and f'@"{action}"' in tweak
 
 print("panel contract OK")
