@@ -474,10 +474,20 @@ static BOOL BCXBeginRecognizer(SBFluidSwitcherGestureManager *manager, UIPanGest
     return YES;
 }
 
-static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
+static BOOL BCXSuppressSystemSwipe(SBFluidSwitcherGestureManager *manager, id gesture) {
+    if (activeRecognizer) return YES;
     @try {
-        return BCXBeginRecognizer(manager, [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"]);
-    } @catch (NSException *exception) { return NO; }
+        if ([gesture respondsToSelector:@selector(locationInView:)]) {
+            CGPoint point = ((CGPoint (*)(id, SEL, id))objc_msgSend)(gesture, @selector(locationInView:), nil);
+            if (BCXClaimsX(point.x)) return YES;
+        }
+        id edgeGesture = [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"];
+        if ([edgeGesture respondsToSelector:@selector(locationInView:)]) {
+            CGPoint point = ((CGPoint (*)(id, SEL, id))objc_msgSend)(edgeGesture, @selector(locationInView:), nil);
+            return BCXClaimsX(point.x);
+        }
+    } @catch (NSException *exception) { }
+    return NO;
 }
 
 static void BCXInstallOwnRecognizer(SBFluidSwitcherGestureManager *manager, SBGrabberTongue *tongue) {
@@ -501,6 +511,11 @@ static void BCXInstallOwnRecognizer(SBFluidSwitcherGestureManager *manager, SBGr
 }
 
 - (BOOL)_shouldProtectEdgeLocation:(CGPoint)location edge:(NSUInteger)edge {
+    if (BCXClaimsX(location.x)) return YES;
+    return %orig;
+}
+
+- (BOOL)_shouldProtectEdgeLocation:(CGPoint)location {
     if (BCXClaimsX(location.x)) return YES;
     return %orig;
 }
@@ -539,11 +554,11 @@ static void BCXInstallOwnRecognizer(SBFluidSwitcherGestureManager *manager, SBGr
 }
 
 - (void)grabberTongueBeganPulling:(id)arg1 withDistance:(double)arg2 andVelocity:(double)arg3 {
-    if (!BCXBeginSwipe(self)) %orig;
+    if (!BCXSuppressSystemSwipe(self, nil)) %orig;
 }
 
 - (void)grabberTongueBeganPulling:(id)arg1 withDistance:(double)arg2 andVelocity:(double)arg3 andGesture:(id)arg4 {
-    if (!BCXBeginSwipe(self)) %orig;
+    if (!BCXSuppressSystemSwipe(self, arg4)) %orig;
 }
 %end
 
