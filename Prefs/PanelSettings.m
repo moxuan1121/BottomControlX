@@ -23,6 +23,16 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
 
 @implementation BCXPanelSettingsController
 
+static UIImage *BCXScaledSettingsIcon(UIImage *image) {
+    if (!image) return nil;
+    CGSize size = CGSizeMake(30, 30);
+    UIGraphicsBeginImageContextWithOptions(size, NO, UIScreen.mainScreen.scale);
+    [image drawInRect:CGRectMake(0, 0, size.width, size.height)];
+    UIImage *scaled = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return scaled;
+}
+
 - (NSArray<NSDictionary *> *)visibleChoices {
     return self.filteredChoices ?: self.choices ?: @[];
 }
@@ -168,7 +178,8 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
     } else if (!(self.mode == BCXPickerModePanel && path.section == 2)) {
         NSDictionary *item = self.mode == BCXPickerModePanel ? BCXPanelItemsForKey(self.zoneKey)[path.row] : [self itemAtIndexPath:path];
         cell.textLabel.text = item[@"title"];
-        cell.imageView.image = self.mode == BCXPickerModeApps ? BCXApplicationIcon(item[@"app"]) : BCXItemImage(item, smallIcon);
+        cell.imageView.image = self.mode == BCXPickerModeApps
+            ? BCXScaledSettingsIcon(BCXApplicationIcon(item[@"app"])) : BCXItemImage(item, smallIcon);
         if (self.mode == BCXPickerModePanel) cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         if (self.mode == BCXPickerModePanel && [item[@"kind"] isEqualToString:@"quick"]) cell.detailTextLabel.text = item[@"app"];
     }

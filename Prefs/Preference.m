@@ -3,7 +3,6 @@
 #import <Preferences/PSSpecifier.h>
 #import <Preferences/PSListItemsController.h>
 #import <Preferences/PSSliderTableCell.h>
-#import <SafariServices/SafariServices.h>
 #import <spawn.h>
 #import "../Common.h"
 #import "../PanelData.h"
@@ -81,8 +80,6 @@
     [items addObject:[self groupNamed:@"维护" footer:nil]];
     [items addObject:[self buttonNamed:@"重置全部设置" action:@selector(resetSettings)]];
     [items addObject:[self buttonNamed:@"重启 SpringBoard" action:@selector(respring)]];
-    [items addObject:[self buttonNamed:@"作者的其他插件" action:@selector(openDonation)]];
-    [items addObject:[self groupNamed:nil footer:CREDITS]];
     _specifiers = [items copy];
     return _specifiers;
 }
@@ -133,12 +130,6 @@
     char *args[] = {(char *)path, NULL};
     extern char **environ;
     posix_spawn(&pid, path, NULL, NULL, args, environ);
-}
-
-- (void)openDonation {
-    SFSafariViewController *browser = [[SFSafariViewController alloc] initWithURL:
-        [NSURL URLWithString:@"https://cydia.ichitaso.com/donation.html"]];
-    [self presentViewController:browser animated:YES completion:nil];
 }
 
 - (void)viewWillAppear:(BOOL)animated {

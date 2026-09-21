@@ -5,18 +5,9 @@
 #import <spawn.h>
 #import <signal.h>
 #import <unistd.h>
-#import <sys/wait.h>
 #import <dlfcn.h>
 #import <objc/runtime.h>
 #import <stdint.h>
-
-#define Home                1
-#define CCC                 2
-#define Lock                3
-#define CS                  9
-#define ScreenShot          5
-#define SecretShot          6
-#define NoAction            10
 
 static BOOL enable;
 static CGFloat leftValue;
@@ -59,14 +50,6 @@ static void showControlCenter(void) {
     if (gControl && [gControl respondsToSelector:present]) {
         ((void (*)(id, SEL, BOOL))objc_msgSend)(gControl, present, YES);
     }
-}
-
-// SecretShot https://github.com/iCrazeiOS/SBShot https://stackoverflow.com/questions/21415080/make-screenshot-of-the-whole-screen-in-ios7
-OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
-void takeScreenshotAndSave() {
-    UIImage *image = _UICreateScreenUIImage();
-    if (image == nil) return;
-    UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil);
 }
 
 static BOOL BCXIsLocked(void) {
@@ -162,6 +145,32 @@ static id BCXIconViewForBundleID(NSString *bundleID) {
     }
 }
 
+static void BCXFetchAllQuickActions(void (^completion)(NSArray<NSDictionary *> *items)) {
+    NSArray<NSDictionary *> *apps = BCXInstalledApps();
+    NSMutableArray<NSDictionary *> *result = [NSMutableArray array];
+    dispatch_group_t group = dispatch_group_create();
+    __block BOOL finished = NO;
+    void (^finish)(void) = ^{
+        if (finished) return;
+        finished = YES;
+        completion([result copy]);
+    };
+    for (NSDictionary *app in apps) {
+        NSString *bundleID = app[@"id"];
+        dispatch_group_enter(group);
+        BCXFetchQuickActions(bundleID, BCXIconViewForBundleID(bundleID), ^(NSArray<NSDictionary *> *actions) {
+            for (NSDictionary *action in actions) {
+                NSMutableDictionary *entry = [action mutableCopy];
+                entry[@"appTitle"] = app[@"title"] ?: bundleID;
+                [result addObject:entry];
+            }
+            dispatch_group_leave(group);
+        });
+    }
+    dispatch_group_notify(group, dispatch_get_main_queue(), finish);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), finish);
+}
+
 static void BCXQuickRequestReceived(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
     dispatch_async(dispatch_get_main_queue(), ^{
         NSDictionary *request = [NSDictionary dictionaryWithContentsOfFile:QUICK_IPC_PATH];
@@ -169,7 +178,10 @@ static void BCXQuickRequestReceived(CFNotificationCenterRef center, void *observ
         NSString *bundleID = request[@"app"];
         if (![token isKindOfClass:NSString.class] || ![bundleID isKindOfClass:NSString.class]) return;
         if ([bundleID isEqualToString:@"*"]) {
-            [@{@"token":token, @"actions":BCXAllQuickActions()} writeToFile:QUICK_IPC_PATH atomically:YES];
+            BCXFetchAllQuickActions(^(NSArray<NSDictionary *> *actions) {
+                NSArray *resolved = actions.count ? actions : BCXAllQuickActions();
+                [@{@"token":token, @"actions":resolved} writeToFile:QUICK_IPC_PATH atomically:YES];
+            });
             return;
         }
         id iconView = BCXIconViewForBundleID(bundleID);
@@ -391,8 +403,11 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
     @try { recognizer = [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"]; }
     @catch (NSException *exception) { return NO; }
     if (![recognizer isKindOfClass:UIPanGestureRecognizer.class]) return NO;
+    CGPoint translation = [recognizer translationInView:nil];
     CGPoint velocity = [recognizer velocityInView:nil];
-    if (velocity.y >= 0 || -velocity.y <= fabs(velocity.x) * 1.15) return NO;
+    BOOL clearlyHorizontal = fabs(translation.x) > 12 && fabs(translation.x) > fabs(translation.y) * 1.25;
+    clearlyHorizontal |= fabs(velocity.x) > 300 && fabs(velocity.x) > fabs(velocity.y) * 1.8;
+    if (clearlyHorizontal) return NO;
     if (showGestureAreas && !debugGestureWindow) BCXUpdateDebugOverlay();
     CGFloat x = [recognizer locationInView:nil].x;
     CGFloat width = UIScreen.mainScreen.bounds.size.width;

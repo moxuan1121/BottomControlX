@@ -40,9 +40,13 @@ assert 'BCXAllQuickActions' in data and 'BCXRequestQuickActions(@"*")' in panel_
 assert 'SBIconController' in tweak and 'activateShortcut:withBundleIdentifier:forIconView:' in tweak
 assert 'UISearchResultsUpdating' in panel_settings and 'localizedCaseInsensitiveContainsString' in panel_settings
 assert 'showGestureAreas' in prefs and 'showGestureAreas' in tweak
-assert '-velocity.y <= fabs(velocity.x) * 1.15' in tweak
+assert 'clearlyHorizontal' in tweak and 'fabs(translation.x) > 12' in tweak
 assert 'com.mox1121.shortcutpanel' in common and 'Package: com.mox1121.shortcutpanel' in control
 assert 'Name: ShortcutPanel' in control
+assert 'BCXFetchAllQuickActions' in tweak and 'dispatch_group_notify' in tweak
+assert 'allInstalledApplications' in data
+assert 'BCXScaledSettingsIcon' in panel_settings
+assert '作者的其他插件' not in prefs and 'SafariServices' not in prefs
 assert 'customSymbol' in data and 'customImage' in data
 assert '_applicationIconImageForBundleIdentifier' in data
 assert '_fetchApplicationShortcutItemsIfAppropriate' in data

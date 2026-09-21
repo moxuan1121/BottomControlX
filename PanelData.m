@@ -129,17 +129,25 @@ NSArray<NSDictionary *> *BCXInstalledApps(void) {
     Class workspaceClass = NSClassFromString(@"LSApplicationWorkspace");
     if (![workspaceClass respondsToSelector:@selector(defaultWorkspace)]) return @[];
     id workspace = ((id (*)(id, SEL))objc_msgSend)(workspaceClass, @selector(defaultWorkspace));
-    if (![workspace respondsToSelector:@selector(allApplications)]) return @[];
-    id proxies = ((id (*)(id, SEL))objc_msgSend)(workspace, @selector(allApplications));
-    if (![proxies isKindOfClass:NSArray.class]) return @[];
+    NSMutableArray *proxies = [NSMutableArray array];
+    for (NSString *name in @[@"allApplications", @"allInstalledApplications"]) {
+        SEL selector = NSSelectorFromString(name);
+        id values = [workspace respondsToSelector:selector]
+            ? ((id (*)(id, SEL))objc_msgSend)(workspace, selector) : nil;
+        if ([values isKindOfClass:NSArray.class]) [proxies addObjectsFromArray:values];
+    }
     NSMutableArray *apps = [NSMutableArray array];
+    NSMutableSet *seen = [NSMutableSet set];
     for (id proxy in proxies) {
         @try {
             NSString *identifier = [proxy respondsToSelector:@selector(applicationIdentifier)]
                 ? ((id (*)(id, SEL))objc_msgSend)(proxy, @selector(applicationIdentifier)) : nil;
             NSString *name = [proxy respondsToSelector:@selector(localizedName)]
                 ? ((id (*)(id, SEL))objc_msgSend)(proxy, @selector(localizedName)) : nil;
-            if (identifier.length && name.length) [apps addObject:@{@"id":identifier, @"title":name}];
+            if (identifier.length && name.length && ![seen containsObject:identifier]) {
+                [seen addObject:identifier];
+                [apps addObject:@{@"id":identifier, @"title":name}];
+            }
         } @catch (NSException *exception) { }
     }
     return [apps sortedArrayUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
