@@ -10,12 +10,6 @@
 #import <stdint.h>
 #import <sys/wait.h>
 
-extern "C" {
-int posix_spawnattr_set_persona_np(const posix_spawnattr_t *, uid_t, uint32_t);
-int posix_spawnattr_set_persona_uid_np(const posix_spawnattr_t *, uid_t);
-int posix_spawnattr_set_persona_gid_np(const posix_spawnattr_t *, gid_t);
-}
-
 static BOOL enable;
 static void BCXRunPanelItem(NSDictionary *item);
 
@@ -75,23 +69,47 @@ static BOOL BCXSpawn(NSString *program, NSString *argument) {
     return posix_spawn(&pid, path, NULL, NULL, argv, environ) == 0;
 }
 
-static BOOL BCXRebootUserspace(void) {
+static NSInteger BCXRebootUserspace(void) {
+    const char *killall = jbroot("/usr/bin/killall");
+    if (access(killall, X_OK) == 0) {
+        pid_t pid = 0;
+        char *argv[] = {(char *)"killall", (char *)"-9", (char *)"launchd", NULL};
+        extern char **environ;
+        int spawnResult = posix_spawn(&pid, killall, NULL, NULL, argv, environ);
+        if (spawnResult == 0) {
+            int status = 0;
+            if (waitpid(pid, &status, 0) >= 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0) return 0;
+        }
+    }
+
     const char *jbctl = jbroot("/basebin/jbctl");
-    if (access(jbctl, X_OK) != 0) return NO;
+    if (access(jbctl, X_OK) != 0) return -10;
+    void *library = RTLD_DEFAULT;
+    typedef int (*BCXExecCommand)(const char *, ...);
+    BCXExecCommand execCommand = (BCXExecCommand)dlsym(library, "exec_cmd");
+    if (!execCommand) {
+        library = dlopen(jbroot("/basebin/libjailbreak.dylib"), RTLD_NOW | RTLD_LOCAL);
+        if (!library) library = dlopen(jbroot("/usr/lib/libjailbreak.dylib"), RTLD_NOW | RTLD_LOCAL);
+        execCommand = library ? (BCXExecCommand)dlsym(library, "exec_cmd") : NULL;
+    }
+    if (!execCommand) return -11;
+
+    uid_t originalUser = getuid();
+    gid_t originalGroup = getgid();
+    int userResult = geteuid() == 0 ? 0 : setuid(0);
+    int groupResult = getegid() == 0 ? 0 : setgid(0);
+    if (userResult != 0 || groupResult != 0) {
+        if (groupResult == 0 && originalGroup != 0) setgid(originalGroup);
+        if (userResult == 0 && originalUser != 0) seteuid(originalUser);
+        if (library != RTLD_DEFAULT) dlclose(library);
+        return -12;
+    }
     sync();
-    posix_spawnattr_t attributes;
-    if (posix_spawnattr_init(&attributes) != 0) return NO;
-    posix_spawnattr_set_persona_np(&attributes, 99, 1);
-    posix_spawnattr_set_persona_uid_np(&attributes, 0);
-    posix_spawnattr_set_persona_gid_np(&attributes, 0);
-    pid_t pid = 0;
-    char *argv[] = {(char *)jbctl, (char *)"reboot_userspace", NULL};
-    extern char **environ;
-    int spawnResult = posix_spawn(&pid, jbctl, NULL, &attributes, argv, environ);
-    posix_spawnattr_destroy(&attributes);
-    if (spawnResult != 0) return NO;
-    int status = 0;
-    return waitpid(pid, &status, 0) >= 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0;
+    int result = execCommand(jbctl, "reboot_userspace", NULL);
+    if (originalGroup != 0) setgid(originalGroup);
+    if (originalUser != 0) seteuid(originalUser);
+    if (library != RTLD_DEFAULT) dlclose(library);
+    return result;
 }
 
 static id BCXIconViewForBundleID(NSString *bundleID) {
@@ -299,7 +317,8 @@ static void BCXRunPanelItem(NSDictionary *item) {
         BCXCloseBackgroundApps();
         kill(getpid(), SIGTERM);
     } else if ([identifier isEqualToString:@"userspace"]) {
-        if (!BCXRebootUserspace()) BCXAlert(@"无法启动用户空间重启工具。");
+        NSInteger result = BCXRebootUserspace();
+        if (result != 0) BCXAlert([NSString stringWithFormat:@"用户空间重启失败（错误 %ld）。", (long)result]);
     } else if ([identifier isEqualToString:@"reboot"]) {
         if (!BCXPowerAction(YES)) BCXAlert(@"无法重启手机。");
     } else if ([identifier isEqualToString:@"shutdown"]) {

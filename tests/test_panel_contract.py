@@ -27,7 +27,8 @@ assert "BCXHandleWindow" in panel and "hitTest:(CGPoint)point" in panel
 assert "pill.layer.cornerRadius = 8" in panel and "BCXHandleHeight()" in panel
 assert "BCXHandlePosition()" in panel and "pillHeight * 0.9" in panel
 assert "BCX_HANDLE_HEIGHT" in prefs and "BCX_HANDLE_POSITION" in prefs
-assert "pillHeight * 0.29" in panel and "pillWidth * 0.24" in panel
+assert "pillHeight * 0.055" in panel and "horizontalInset = lineWidth * 0.85" in panel
+assert "left ? 0 : touchWidth - pillWidth" in panel
 assert "BCX_PANEL_MIN_WIDTH" in prefs and "BCXPanelMinimumWidth()" in panel
 assert "sizeWithAttributes" in panel and "MIN(280, ceil(titleWidth))" in panel
 assert "distance >= 40 || velocity >= 600" in panel
@@ -38,9 +39,8 @@ for removed in ("SBFluidSwitcherGestureManager", "SBFluidSwitcherGestureExclusio
 assert "WFSpringBoardWorkflowRunnerClient" in tweak
 assert "initWithWorkflowIdentifier:" in tweak and "shortcuts://run-shortcut" not in tweak
 assert 'BCXRebootUserspace()' in tweak and '"reboot_userspace"' in tweak
-assert 'posix_spawnattr_set_persona_np(&attributes, 99, 1)' in tweak
-assert 'posix_spawnattr_set_persona_uid_np(&attributes, 0)' in tweak
-assert 'posix_spawnattr_set_persona_gid_np(&attributes, 0)' in tweak
+assert 'jbroot("/usr/bin/killall")' in tweak and '(char *)"launchd"' in tweak
+assert 'dlsym(library, "exec_cmd")' in tweak
 assert 'waitpid(pid, &status, 0)' in tweak
 assert 'exec_cmd_suspended' not in tweak and 'jbclient_root_set_mac_label' not in tweak
 assert 'else if ([identifier isEqualToString:@"respring"]) kill(getpid(), SIGTERM);' in tweak
@@ -50,7 +50,7 @@ assert "BCXAllQuickActions" in data and 'BCXRequestQuickActions(@"*")' in panel_
 assert 'activateShortcut:withBundleIdentifier:forIconView:' in tweak
 assert "UISearchResultsUpdating" in panel_settings and "localizedCaseInsensitiveContainsString" in panel_settings
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel24" in control
+assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel25" in control
 assert "customSymbol" in data and "customImage" in data
 
 db = sqlite3.connect(":memory:")

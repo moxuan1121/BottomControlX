@@ -166,7 +166,9 @@ static void (^handleRunAction)(NSDictionary *item);
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     CGFloat pillHeight = BCXHandleHeight();
-    CGFloat pillWidth = MAX(18, MIN(38, pillHeight * 0.29));
+    CGFloat lineWidth = MAX(4, MIN(8, pillHeight * 0.055));
+    CGFloat horizontalInset = lineWidth * 0.85;
+    CGFloat pillWidth = lineWidth + horizontalInset * 2;
     CGFloat touchHeight = pillHeight + 20;
     CGFloat touchWidth = pillWidth + 12;
     CGFloat y = floor(self.view.bounds.size.height * BCXHandlePosition() - touchHeight / 2);
@@ -176,11 +178,10 @@ static void (^handleRunAction)(NSDictionary *item);
     for (UIView *handle in @[self.leftHandle, self.rightHandle]) {
         BOOL left = handle.tag == 1;
         UIView *pill = [handle viewWithTag:10];
-        pill.frame = CGRectMake(left ? -4 : touchWidth - pillWidth + 4, 10, pillWidth, pillHeight);
+        pill.frame = CGRectMake(left ? 0 : touchWidth - pillWidth, 10, pillWidth, pillHeight);
         pill.layer.cornerRadius = pillWidth / 2;
         UIView *line = [pill viewWithTag:11];
         CGFloat lineHeight = pillHeight * 0.9;
-        CGFloat lineWidth = MAX(4, pillWidth * 0.24);
         line.frame = CGRectMake((pillWidth - lineWidth) / 2, (pillHeight - lineHeight) / 2, lineWidth, lineHeight);
         line.layer.cornerRadius = lineWidth / 2;
     }
