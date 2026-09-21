@@ -184,21 +184,57 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
         if (self.mode == BCXPickerModePanel && [item[@"kind"] isEqualToString:@"quick"]) cell.detailTextLabel.text = item[@"app"];
     }
     if (self.mode == BCXPickerModePanel && path.section == 2) {
-        cell.textLabel.text = [NSString stringWithFormat:@"图标大小 %.0f", BCXIconSize()];
-        UISlider *slider = [[UISlider alloc] initWithFrame:CGRectMake(0, 0, 170, 32)];
+        cell.textLabel.text = nil;
+        UIView *container = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 250, 44)];
+        UISlider *slider = [[UISlider alloc] initWithFrame:CGRectMake(0, 6, 178, 32)];
         slider.minimumValue = 20; slider.maximumValue = 64; slider.value = BCXIconSize();
         [slider addTarget:self action:@selector(iconSizeChanged:) forControlEvents:UIControlEventValueChanged];
-        cell.accessoryView = slider;
+        [slider addTarget:self action:@selector(iconSizeEnded:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
+        [container addSubview:slider];
+        UILabel *value = [[UILabel alloc] initWithFrame:CGRectMake(186, 0, 64, 44)];
+        value.tag = 28;
+        value.textAlignment = NSTextAlignmentRight;
+        value.font = [UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightRegular];
+        value.textColor = UIColor.secondaryLabelColor;
+        value.text = [NSString stringWithFormat:@"%.2f", BCXIconSize()];
+        value.userInteractionEnabled = YES;
+        [value addGestureRecognizer:[[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(editIconSize:)]];
+        [container addSubview:value];
+        cell.accessoryView = container;
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
     } else cell.accessoryView = nil;
     return cell;
 }
 
 - (void)iconSizeChanged:(UISlider *)slider {
-    BCXSetIconSize(round(slider.value));
-    UIView *view = slider;
-    while (view && ![view isKindOfClass:UITableViewCell.class]) view = view.superview;
-    ((UITableViewCell *)view).textLabel.text = [NSString stringWithFormat:@"图标大小 %.0f", round(slider.value)];
+    ((UILabel *)[slider.superview viewWithTag:28]).text = [NSString stringWithFormat:@"%.2f", slider.value];
+}
+
+- (void)iconSizeEnded:(UISlider *)slider {
+    CGFloat value = round(slider.value * 100) / 100;
+    slider.value = value;
+    BCXSetIconSize(value);
+    [self iconSizeChanged:slider];
+}
+
+- (void)editIconSize:(UILongPressGestureRecognizer *)gesture {
+    if (gesture.state != UIGestureRecognizerStateBegan) return;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"输入图标大小" message:@"范围 20.00–64.00" preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+        field.keyboardType = UIKeyboardTypeDecimalPad;
+        field.text = [NSString stringWithFormat:@"%.2f", BCXIconSize()];
+        [field selectAll:nil];
+    }];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"保存" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        NSString *text = [alert.textFields.firstObject.text stringByReplacingOccurrencesOfString:@"," withString:@"."];
+        NSScanner *scanner = [NSScanner scannerWithString:text];
+        double entered = 0;
+        if (![scanner scanDouble:&entered] || !scanner.isAtEnd) return;
+        BCXSetIconSize(round(MAX(20, MIN(64, entered)) * 100) / 100);
+        [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:2] withRowAnimation:UITableViewRowAnimationNone];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)path {

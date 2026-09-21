@@ -8,7 +8,6 @@
 #import <dlfcn.h>
 #import <objc/runtime.h>
 #import <stdint.h>
-#import <sys/wait.h>
 
 static BOOL enable;
 static void BCXRunPanelItem(NSDictionary *item);
@@ -70,16 +69,13 @@ static BOOL BCXSpawn(NSString *program, NSString *argument) {
 }
 
 static NSInteger BCXRebootUserspace(void) {
-    const char *helper = jbroot("/usr/libexec/ShortcutPanelHelper");
+    const char *helper = jbroot("/basebin/jbctl");
     if (access(helper, X_OK) != 0) return -10;
     pid_t pid = 0;
-    char *argv[] = {(char *)helper, NULL};
+    char *argv[] = {(char *)helper, "reboot_userspace", NULL};
     extern char **environ;
     int spawnResult = posix_spawn(&pid, helper, NULL, NULL, argv, environ);
-    if (spawnResult != 0) return -20 - spawnResult;
-    int status = 0;
-    if (waitpid(pid, &status, 0) < 0 || !WIFEXITED(status)) return -30;
-    return WEXITSTATUS(status);
+    return spawnResult == 0 ? 0 : -20 - spawnResult;
 }
 
 static id BCXIconViewForBundleID(NSString *bundleID) {

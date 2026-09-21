@@ -25,11 +25,5 @@ $(TWEAK_NAME)_LIBRARIES = sqlite3
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 
-TOOL_NAME = ShortcutPanelHelper
-$(TOOL_NAME)_FILES = Helper.m
-$(TOOL_NAME)_INSTALL_PATH = /usr/libexec
-$(TOOL_NAME)_CODESIGN_FLAGS = -SHelperEntitlements.plist
-include $(THEOS_MAKE_PATH)/tool.mk
-
 SUBPROJECTS += Prefs
 include $(THEOS_MAKE_PATH)/aggregate.mk

@@ -3,6 +3,7 @@
 #import <Preferences/PSSpecifier.h>
 #import <Preferences/PSSliderTableCell.h>
 #import <spawn.h>
+#import <objc/runtime.h>
 #import "../Common.h"
 #import "../PanelData.h"
 
@@ -17,6 +18,18 @@
 @interface BottomControlXController : PSListController
 @end
 
+static const void *BCXSliderLabelKey = &BCXSliderLabelKey;
+static const void *BCXSliderSpecifierKey = &BCXSliderSpecifierKey;
+
+static void BCXCollectViews(UIView *view, Class type, NSMutableArray *result) {
+    if ([view isKindOfClass:type]) [result addObject:view];
+    for (UIView *child in view.subviews) BCXCollectViews(child, type, result);
+}
+
+static NSString *BCXDecimal(CGFloat value) {
+    return [NSString stringWithFormat:@"%.2f", round(value * 100) / 100];
+}
+
 @implementation BottomControlXController
 
 - (PSSpecifier *)sliderForKey:(NSString *)key defaultValue:(CGFloat)defaultValue minimum:(CGFloat)minimum maximum:(CGFloat)maximum {
@@ -28,6 +41,7 @@
     [item setProperty:@(minimum) forKey:@"min"];
     [item setProperty:@(maximum) forKey:@"max"];
     [item setProperty:@YES forKey:@"showValue"];
+    [item setProperty:@(0.01) forKey:@"increment"];
     return item;
 }
 
@@ -65,6 +79,12 @@
     [items addObject:[self sliderForKey:BCX_HANDLE_HEIGHT defaultValue:84 minimum:48 maximum:160]];
     [items addObject:[self groupNamed:@"垂直位置" footer:@"数值表示手柄中心在屏幕高度中的位置。"]];
     [items addObject:[self sliderForKey:BCX_HANDLE_POSITION defaultValue:0.58 minimum:0.10 maximum:0.90]];
+    [items addObject:[self groupNamed:@"白条位置" footer:@"正数向屏幕内侧移动，负数向屏幕边缘移动。"]];
+    [items addObject:[self sliderForKey:BCX_HANDLE_INDICATOR_POSITION defaultValue:2 minimum:-6 maximum:6]];
+    [items addObject:[self groupNamed:@"阴影宽度" footer:@"调节手柄深色背景的宽度。"]];
+    [items addObject:[self sliderForKey:BCX_HANDLE_SHADOW_WIDTH defaultValue:14 minimum:8 maximum:30]];
+    [items addObject:[self groupNamed:@"阴影位置" footer:@"正数向屏幕内侧移动，负数向屏幕外侧延伸。"]];
+    [items addObject:[self sliderForKey:BCX_HANDLE_SHADOW_POSITION defaultValue:-1 minimum:-6 maximum:8]];
     [items addObject:[self groupNamed:@"面板最小宽度" footer:@"长动作名称仍会自动拓宽面板。"]];
     [items addObject:[self sliderForKey:BCX_PANEL_MIN_WIDTH defaultValue:104 minimum:80 maximum:220]];
 
@@ -94,6 +114,65 @@
         ?: [NSDictionary dictionaryWithContentsOfFile:LEGACY_PREF_PATH];
     if (prefs[key]) return prefs[key];
     return specifier.properties[@"default"];
+}
+
+- (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath {
+    [super tableView:tableView willDisplayCell:cell forRowAtIndexPath:indexPath];
+    NSMutableArray *sliders = [NSMutableArray array];
+    BCXCollectViews(cell, UISlider.class, sliders);
+    if (!sliders.count) return;
+    UISlider *slider = sliders.firstObject;
+    PSSpecifier *specifier = [self specifierAtIndexPath:indexPath];
+    NSMutableArray *labels = [NSMutableArray array];
+    BCXCollectViews(cell, UILabel.class, labels);
+    UILabel *valueLabel = labels.lastObject;
+    if (!valueLabel || valueLabel == cell.textLabel) return;
+    valueLabel.userInteractionEnabled = YES;
+    valueLabel.font = [UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightRegular];
+    valueLabel.text = BCXDecimal(slider.value);
+    objc_setAssociatedObject(slider, BCXSliderLabelKey, valueLabel, OBJC_ASSOCIATION_ASSIGN);
+    objc_setAssociatedObject(slider, BCXSliderSpecifierKey, specifier, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(valueLabel, BCXSliderSpecifierKey, specifier, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [slider addTarget:self action:@selector(precisionSliderChanged:) forControlEvents:UIControlEventValueChanged];
+    [slider addTarget:self action:@selector(precisionSliderEnded:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
+    if (!valueLabel.gestureRecognizers.count)
+        [valueLabel addGestureRecognizer:[[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(editSliderValue:)]];
+}
+
+- (void)precisionSliderChanged:(UISlider *)slider {
+    ((UILabel *)objc_getAssociatedObject(slider, BCXSliderLabelKey)).text = BCXDecimal(slider.value);
+}
+
+- (void)precisionSliderEnded:(UISlider *)slider {
+    CGFloat value = round(slider.value * 100) / 100;
+    slider.value = value;
+    [self setPreferenceValue:@(value) specifier:objc_getAssociatedObject(slider, BCXSliderSpecifierKey)];
+    [self precisionSliderChanged:slider];
+}
+
+- (void)editSliderValue:(UILongPressGestureRecognizer *)gesture {
+    if (gesture.state != UIGestureRecognizerStateBegan) return;
+    PSSpecifier *specifier = objc_getAssociatedObject(gesture.view, BCXSliderSpecifierKey);
+    CGFloat current = [[self readPreferenceValue:specifier] doubleValue];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"输入数值" message:@"最多保留两位小数" preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+        field.keyboardType = UIKeyboardTypeDecimalPad;
+        field.text = BCXDecimal(current);
+        [field selectAll:nil];
+    }];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"保存" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        NSString *text = [alert.textFields.firstObject.text stringByReplacingOccurrencesOfString:@"," withString:@"."];
+        NSScanner *scanner = [NSScanner scannerWithString:text];
+        double entered = 0;
+        if (![scanner scanDouble:&entered] || !scanner.isAtEnd) return;
+        CGFloat minimum = [specifier.properties[@"min"] doubleValue];
+        CGFloat maximum = [specifier.properties[@"max"] doubleValue];
+        CGFloat value = round(MAX(minimum, MIN(maximum, entered)) * 100) / 100;
+        [self setPreferenceValue:@(value) specifier:specifier];
+        [self reloadSpecifier:specifier animated:NO];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)openLeftSettings { [self openZone:BCX_LEFT_ITEMS title:@"左侧手柄动作"]; }

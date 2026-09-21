@@ -167,8 +167,7 @@ static void (^handleRunAction)(NSDictionary *item);
     [super viewDidLayoutSubviews];
     CGFloat pillHeight = BCXHandleHeight();
     CGFloat lineWidth = MAX(4, MIN(8, pillHeight * 0.055));
-    CGFloat horizontalInset = lineWidth * 0.85;
-    CGFloat pillWidth = lineWidth + horizontalInset * 2;
+    CGFloat pillWidth = BCXHandleShadowWidth();
     CGFloat touchHeight = pillHeight + 20;
     CGFloat touchWidth = pillWidth + 12;
     CGFloat y = floor(self.view.bounds.size.height * BCXHandlePosition() - touchHeight / 2);
@@ -178,12 +177,13 @@ static void (^handleRunAction)(NSDictionary *item);
     for (UIView *handle in @[self.leftHandle, self.rightHandle]) {
         BOOL left = handle.tag == 1;
         UIView *pill = [handle viewWithTag:10];
-        pill.frame = CGRectMake(left ? -1 : touchWidth - pillWidth + 1, 10, pillWidth, pillHeight);
+        CGFloat shadowPosition = BCXHandleShadowPosition();
+        pill.frame = CGRectMake(left ? shadowPosition : touchWidth - pillWidth - shadowPosition, 10, pillWidth, pillHeight);
         pill.layer.cornerRadius = pillWidth / 2;
         UIView *line = [pill viewWithTag:11];
         CGFloat lineHeight = pillHeight * 0.9;
-        CGFloat visibleWidth = pillWidth - 1;
-        CGFloat lineX = (visibleWidth - lineWidth) / 2 + (left ? 2.5 : -1.5);
+        CGFloat indicatorPosition = BCXHandleIndicatorPosition();
+        CGFloat lineX = (pillWidth - lineWidth) / 2 + (left ? indicatorPosition : -indicatorPosition);
         line.frame = CGRectMake(lineX, (pillHeight - lineHeight) / 2, lineWidth, lineHeight);
         line.layer.cornerRadius = lineWidth / 2;
     }

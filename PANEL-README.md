@@ -4,7 +4,7 @@
 
 ShortcutPanel 在屏幕左右侧提供常驻的圆角手柄。某侧配置动作后才显示对应手柄；按住手柄向屏幕内拖动时，窄侧边面板跟随手指展开，往回拖可取消。松手完成呼出后，点击动作立即执行，点击面板外部关闭。左右手柄继续使用原有的两组动作配置，支持系统与越狱动作、快捷指令及应用快捷方式，并可排序、移除、自定义名称和图标。
 
-设置页可连续调节手柄高度、垂直位置和面板最小宽度。手柄背景向屏幕外延伸 1 点以消除边缘抗锯齿缝隙，白条按裁切后的可见区域居中；外层宽度由白条宽度和等比留白反推，白条高度保持为外层的 90%。侧边面板会在设定的最小宽度基础上，根据最长动作名称自动拓宽，最大为 280 点。它不接管底部 Home Indicator 手势，也不提供面板内添加按钮。
+设置页可连续调节手柄高度、垂直位置、白条位置、阴影宽度、阴影位置和面板最小宽度。所有滑条显示两位小数，长按右侧数值可直接键入。白条高度保持为外层的 90%。侧边面板会在设定的最小宽度基础上，根据最长动作名称自动拓宽，最大为 280 点。它不接管底部 Home Indicator 手势，也不提供面板内添加按钮。
 
 ## 构建
 
@@ -23,6 +23,6 @@ GitHub Actions 构建成功只证明可编译和打包。侧边窗口触摸穿�
 - 快捷指令列表以只读方式读取 iOS 15 的 `Shortcuts.sqlite`，运行时通过 iOS 15 的 `WFSpringBoardWorkflowRunnerClient` 按稳定 ID 从 SpringBoard 后台启动。需要显示界面或首次授权的指令仍可能需要用户交互。
 - 应用图标快捷操作合并 SpringBoard 可读取的静态、动态项目及长按菜单缓存，并通过 iOS 15 的 `SBIconView` 接口激活；不同应用的动态快捷操作仍需逐项实测。
 - 「重启 SpringBoard」只结束 SpringBoard；「关闭后台并重启 SB」会先结束后台应用，再结束 SpringBoard。
-- 用户空间重启由随包安装的 `ShortcutPanelHelper` 执行。辅助工具带有 Dopamine 同类的 platform、no-sandbox 和 userspace-reboot entitlement，在自己的进程内切换 root 后直接调用 `reboot3(RB2_USERREBOOT)`；SpringBoard 只负责启动并检查工具结果。刷新图标依赖 roothide 环境中的 `uicache`。
+- 用户空间重启调用 Dopamine／roothide 环境自带的 `/basebin/jbctl reboot_userspace`。`jbctl` 自身带有越狱环境授予的用户空间重启权限，插件不再附带提权辅助程序。刷新图标依赖 roothide 环境中的 `uicache`。
 
 本项目基于 [ichitaso/BottomControlX](https://github.com/ichitaso/BottomControlX)，遵循原项目许可证。

@@ -70,6 +70,21 @@ CGFloat BCXHandlePosition(void) {
     return position >= 0.1 ? MIN(0.9, position) : 0.58;
 }
 
+CGFloat BCXHandleIndicatorPosition(void) {
+    id value = BCXPreferences()[BCX_HANDLE_INDICATOR_POSITION];
+    return value ? MAX(-6, MIN(6, [value doubleValue])) : 2;
+}
+
+CGFloat BCXHandleShadowWidth(void) {
+    CGFloat width = [BCXPreferences()[BCX_HANDLE_SHADOW_WIDTH] doubleValue];
+    return width >= 8 ? MIN(30, width) : 14;
+}
+
+CGFloat BCXHandleShadowPosition(void) {
+    id value = BCXPreferences()[BCX_HANDLE_SHADOW_POSITION];
+    return value ? MAX(-6, MIN(8, [value doubleValue])) : -1;
+}
+
 CGFloat BCXPanelMinimumWidth(void) {
     CGFloat width = [BCXPreferences()[BCX_PANEL_MIN_WIDTH] doubleValue];
     return width >= 80 ? MIN(220, width) : 104;

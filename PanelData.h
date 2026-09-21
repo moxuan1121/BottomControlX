@@ -9,6 +9,9 @@ extern "C" {
 #define BCX_ICON_SIZE @"panelIconSize"
 #define BCX_HANDLE_HEIGHT @"handleHeight"
 #define BCX_HANDLE_POSITION @"handlePosition"
+#define BCX_HANDLE_INDICATOR_POSITION @"handleIndicatorPosition"
+#define BCX_HANDLE_SHADOW_WIDTH @"handleShadowWidth"
+#define BCX_HANDLE_SHADOW_POSITION @"handleShadowPosition"
 #define BCX_PANEL_MIN_WIDTH @"panelMinimumWidth"
 
 NSArray<NSDictionary *> *BCXPanelItemsForKey(NSString *key);
@@ -27,6 +30,9 @@ CGFloat BCXIconSize(void);
 void BCXSetIconSize(CGFloat size);
 CGFloat BCXHandleHeight(void);
 CGFloat BCXHandlePosition(void);
+CGFloat BCXHandleIndicatorPosition(void);
+CGFloat BCXHandleShadowWidth(void);
+CGFloat BCXHandleShadowPosition(void);
 CGFloat BCXPanelMinimumWidth(void);
 NSString *BCXSymbol(NSDictionary *item);
 UIImage *BCXItemImage(NSDictionary *item, CGFloat size);
