@@ -72,7 +72,7 @@ static NSInteger BCXRebootUserspace(void) {
     const char *helper = jbroot("/basebin/jbctl");
     if (access(helper, X_OK) != 0) return -10;
     pid_t pid = 0;
-    char *argv[] = {(char *)helper, "reboot_userspace", NULL};
+    char *argv[] = {(char *)helper, (char *)"reboot_userspace", NULL};
     extern char **environ;
     int spawnResult = posix_spawn(&pid, helper, NULL, NULL, argv, environ);
     return spawnResult == 0 ? 0 : -20 - spawnResult;
