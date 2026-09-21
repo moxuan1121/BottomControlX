@@ -24,7 +24,3 @@
 - (void)setCoverSheetPresented:(BOOL)arg1 animated:(BOOL)arg2 withCompletion:(id)arg3;
 @end
 
-@interface SBLockStateAggregator : NSObject
-+ (id)sharedInstance;
-- (unsigned long long)lockState;
-@end

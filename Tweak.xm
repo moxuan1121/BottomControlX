@@ -44,11 +44,6 @@ static void showControlCenter(void) {
     }
 }
 
-static BOOL BCXIsLocked(void) {
-    Class lockClass = NSClassFromString(@"SBLockStateAggregator");
-    return lockClass && ([[lockClass sharedInstance] lockState] & 0x02);
-}
-
 static void BCXAlert(NSString *message) {
     UIViewController *root = nil;
     for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
