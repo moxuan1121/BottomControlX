@@ -96,27 +96,34 @@ static BOOL BCXRebootUserspace(void) {
     const char *library = jbroot("/basebin/libjailbreak.dylib");
     void *handle = dlopen(library, RTLD_NOW | RTLD_LOCAL);
     typedef int (*BCXSetMacLabel)(uint64_t, uint64_t, uint64_t *);
+    typedef int (*BCXExecSuspended)(pid_t *, const char *, ...);
     BCXSetMacLabel setMacLabel = handle ? (BCXSetMacLabel)dlsym(handle, "jbclient_root_set_mac_label") : NULL;
+    BCXExecSuspended execSuspended = handle ? (BCXExecSuspended)dlsym(handle, "exec_cmd_suspended") : NULL;
+    if (!setMacLabel || !execSuspended || access(jbctl, X_OK) != 0) {
+        if (handle) dlclose(handle);
+        return NO;
+    }
+
     uid_t originalUser = getuid();
     gid_t originalGroup = getgid();
-    if (originalGroup != 0) setgid(0);
-    if (originalUser != 0) setuid(0);
-    uint64_t originalLabel = 0;
-    BOOL labelChanged = setMacLabel && setMacLabel(1, UINT64_MAX, &originalLabel) == 0;
+    int userResult = originalUser == 0 ? 0 : setuid(0);
+    int groupResult = originalGroup == 0 ? 0 : setgid(0);
+    if (userResult != 0 || groupResult != 0) {
+        if (groupResult == 0 && originalGroup != 0) setgid(originalGroup);
+        if (userResult == 0 && originalUser != 0) seteuid(originalUser);
+        dlclose(handle);
+        return NO;
+    }
 
+    uint64_t originalLabel = 0;
+    BOOL labelChanged = setMacLabel(1, UINT64_MAX, &originalLabel) == 0;
     pid_t pid = 0;
-    char *argv[] = {(char *)jbctl, (char *)"reboot_userspace", NULL};
-    extern char **environ;
-    posix_spawnattr_t attributes;
-    posix_spawnattr_init(&attributes);
-    posix_spawnattr_setflags(&attributes, POSIX_SPAWN_START_SUSPENDED);
-    BOOL started = access(jbctl, X_OK) == 0 && posix_spawn(&pid, jbctl, NULL, &attributes, argv, environ) == 0;
-    posix_spawnattr_destroy(&attributes);
+    BOOL started = labelChanged && execSuspended(&pid, jbctl, "reboot_userspace", NULL) == 0;
     if (started) kill(pid, SIGCONT);
     if (labelChanged) setMacLabel(1, originalLabel, NULL);
     if (originalGroup != 0) setgid(originalGroup);
     if (originalUser != 0) seteuid(originalUser);
-    if (handle) dlclose(handle);
+    dlclose(handle);
     return started;
 }
 

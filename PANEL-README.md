@@ -22,7 +22,7 @@ make clean package THEOS_PACKAGE_SCHEME=roothide
 - 应用列表读取系统应用图标。图标快捷操作由 SpringBoard 的快捷操作服务及 iOS 15 图标视图接口查询，静态菜单项也会从应用资料读取。运行时优先使用图标视图激活；不同应用的动态快捷操作仍需逐项实测。
 - 「关闭后台应用」向后台进程发送结束信号，系统任务切换器中的卡片可能保留。
 - 「重启 SpringBoard」只结束 SpringBoard；「重启 SpringBoard 并释放后台」会先结束后台应用，再结束 SpringBoard。
-- 用户空间重启按 Dopamine roothide 的方式临时取得 root 与非沙盒标签，并以挂起状态启动 `jbctl reboot_userspace` 后继续执行。刷新图标依赖 roothide 环境中的 `uicache`。
+- 用户空间重启按 Dopamine roothide 的方式临时取得 root 与非沙盒标签，并通过 `libjailbreak` 的 roothide 启动函数以挂起状态运行 `jbctl reboot_userspace`。刷新图标依赖 roothide 环境中的 `uicache`。
 - 底部手势会优先延迟键盘左下角切换键盘、右下角听写按钮的触摸；若系统仍在滑动中途取消识别，已超过触发距离的手势按完成处理。
 
 本项目基于 [ichitaso/BottomControlX](https://github.com/ichitaso/BottomControlX)，遵循原项目许可证。
