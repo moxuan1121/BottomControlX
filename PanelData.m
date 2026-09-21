@@ -11,6 +11,18 @@ static NSDictionary *BCXPreferences(void) {
     return [prefs isKindOfClass:NSDictionary.class] ? prefs : @{};
 }
 
+static NSMutableDictionary<NSString *, NSArray *> *BCXQuickActionCache(void) {
+    static NSMutableDictionary *cache;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{ cache = [NSMutableDictionary dictionary]; });
+    return cache;
+}
+
+void BCXCacheQuickActions(NSString *bundleID, NSArray *actions) {
+    if (!bundleID.length || ![actions isKindOfClass:NSArray.class] || !actions.count) return;
+    BCXQuickActionCache()[bundleID] = [actions copy];
+}
+
 NSArray<NSDictionary *> *BCXPanelItemsForKey(NSString *key) {
     NSDictionary *prefs = BCXPreferences();
     id items = prefs[key];
@@ -251,7 +263,8 @@ static NSArray *BCXApplicationQuickActions(NSString *bundleID) {
 static NSArray *BCXRawQuickActions(NSString *bundleID, id iconView) {
     NSMutableArray *actions = [NSMutableArray array];
     NSMutableSet *seen = [NSMutableSet set];
-    for (NSArray *source in @[BCXApplicationQuickActions(bundleID), BCXIconQuickActions(iconView), BCXServiceQuickActions(bundleID), BCXStaticQuickActions(bundleID)]) {
+    NSArray *cached = BCXQuickActionCache()[bundleID] ?: @[];
+    for (NSArray *source in @[cached, BCXApplicationQuickActions(bundleID), BCXIconQuickActions(iconView), BCXServiceQuickActions(bundleID), BCXStaticQuickActions(bundleID)]) {
         for (id action in source) {
             @try {
                 SEL selector = @selector(type);

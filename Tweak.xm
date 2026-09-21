@@ -201,17 +201,9 @@ static void BCXQuickRequestReceived(CFNotificationCenterRef center, void *observ
 static BOOL BCXActivateQuickAction(id action, NSString *bundleID, id iconView) {
     SEL activate = @selector(activateShortcut:withBundleIdentifier:forIconView:);
     @try {
-        Class controllerClass = NSClassFromString(@"SBIconController");
-        id controller = [controllerClass respondsToSelector:@selector(sharedInstance)]
-            ? ((id (*)(id, SEL))objc_msgSend)(controllerClass, @selector(sharedInstance)) : nil;
-        if ([controller respondsToSelector:activate]) {
-            void (^fire)(void) = ^{
-                ((void (*)(id, SEL, id, id, id))objc_msgSend)(controller, activate, action, bundleID, nil);
-            };
-            fire();
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                @try { fire(); } @catch (NSException *exception) { }
-            });
+        Class iconClass = NSClassFromString(@"SBIconView");
+        if ([iconClass respondsToSelector:activate]) {
+            ((void (*)(id, SEL, id, id, id))objc_msgSend)(iconClass, activate, action, bundleID, iconView);
             return YES;
         }
         dlopen("/System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices", RTLD_LAZY);
@@ -349,8 +341,38 @@ static inline UIInterfaceOrientation getAppOrientation() {
     return UIApplication.sharedApplication.activeInterfaceOrientation;
 }
 
+static NSString *BCXBundleIDForIconView(id iconView) {
+    @try {
+        for (NSString *name in @[@"applicationBundleIdentifier", @"bundleIdentifier"]) {
+            SEL selector = NSSelectorFromString(name);
+            id value = [iconView respondsToSelector:selector]
+                ? ((id (*)(id, SEL))objc_msgSend)(iconView, selector) : nil;
+            if ([value isKindOfClass:NSString.class] && [value length]) return value;
+        }
+        id icon = [iconView respondsToSelector:@selector(icon)]
+            ? ((id (*)(id, SEL))objc_msgSend)(iconView, @selector(icon)) : nil;
+        for (NSString *name in @[@"applicationBundleID", @"applicationBundleIdentifier", @"bundleIdentifier"]) {
+            SEL selector = NSSelectorFromString(name);
+            id value = [icon respondsToSelector:selector]
+                ? ((id (*)(id, SEL))objc_msgSend)(icon, selector) : nil;
+            if ([value isKindOfClass:NSString.class] && [value length]) return value;
+        }
+    } @catch (NSException *exception) { }
+    return nil;
+}
+
+%hook SBIconView
+- (void)setApplicationShortcutItems:(NSArray *)items {
+    %orig;
+    BCXCacheQuickActions(BCXBundleIDForIconView(self), items);
+}
+%end
+
 static __weak UIPanGestureRecognizer *activeRecognizer;
 static NSArray<NSDictionary *> *activeItems;
+static BOOL activeCancelsTouches;
+static BOOL activeDelaysTouchesBegan;
+static BOOL activeDelaysTouchesEnded;
 static UIWindow *debugGestureWindow;
 
 static void BCXUpdateDebugOverlay(void) {
@@ -422,10 +444,19 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
     if (activeRecognizer != recognizer) {
         activeRecognizer = recognizer;
         activeItems = items;
+        activeCancelsTouches = recognizer.cancelsTouchesInView;
+        activeDelaysTouchesBegan = recognizer.delaysTouchesBegan;
+        activeDelaysTouchesEnded = recognizer.delaysTouchesEnded;
+        recognizer.cancelsTouchesInView = YES;
+        recognizer.delaysTouchesBegan = YES;
+        recognizer.delaysTouchesEnded = YES;
         [recognizer addTarget:manager action:@selector(bcx_handleGesture:)];
         if (items.count > 1) {
             if (!BCXBeginPanel(items, ^(NSDictionary *item) { BCXRunPanelItem(item); })) {
                 [recognizer removeTarget:manager action:@selector(bcx_handleGesture:)];
+                recognizer.cancelsTouchesInView = activeCancelsTouches;
+                recognizer.delaysTouchesBegan = activeDelaysTouchesBegan;
+                recognizer.delaysTouchesEnded = activeDelaysTouchesEnded;
                 activeRecognizer = nil;
                 activeItems = nil;
                 return NO;
@@ -452,6 +483,9 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
         if (activeItems.count > 1) BCXFinishPanel(commit);
         else if (commit && activeItems.count == 1) BCXRunPanelItem(activeItems.firstObject);
         [recognizer removeTarget:self action:@selector(bcx_handleGesture:)];
+        recognizer.cancelsTouchesInView = activeCancelsTouches;
+        recognizer.delaysTouchesBegan = activeDelaysTouchesBegan;
+        recognizer.delaysTouchesEnded = activeDelaysTouchesEnded;
         activeRecognizer = nil;
         activeItems = nil;
     }

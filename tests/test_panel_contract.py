@@ -21,6 +21,7 @@ for zone in ("BCX_LEFT_ITEMS", "BCX_RIGHT_ITEMS"):
 assert "BCX_CENTER_ITEMS" not in prefs and "BCX_CENTER_ITEMS" not in tweak
 assert 'key:@"leftValue"' in prefs and 'key:@"rightWidth"' in prefs
 assert 'key:@"edgeInsetValue"' in prefs
+assert 'cell:PSSliderCell' in prefs and 'forKey:@"min"' in prefs and 'forKey:@"max"' in prefs
 assert 'activeItems.count > 1' in tweak
 assert 'activeItems.count == 1' in tweak
 assert 'BCXFinishPanel(commit)' in tweak
@@ -37,7 +38,9 @@ assert 'position >= rightStart && position <= 1 - edgeInsetValue' in tweak
 assert 'state == UIGestureRecognizerStateEnded && (distance >= 80 || velocity >= 700)' in tweak
 assert 'BCXApplicationQuickActions' in data
 assert 'BCXAllQuickActions' in data and 'BCXRequestQuickActions(@"*")' in panel_settings
-assert 'SBIconController' in tweak and 'activateShortcut:withBundleIdentifier:forIconView:' in tweak
+assert 'NSClassFromString(@"SBIconView")' in tweak and 'activateShortcut:withBundleIdentifier:forIconView:' in tweak
+assert 'setApplicationShortcutItems:' in tweak and 'BCXCacheQuickActions' in tweak and 'BCXQuickActionCache' in data
+assert 'recognizer.cancelsTouchesInView = YES' in tweak
 assert 'UISearchResultsUpdating' in panel_settings and 'localizedCaseInsensitiveContainsString' in panel_settings
 assert 'showGestureAreas' in prefs and 'showGestureAreas' in tweak
 assert 'clearlyHorizontal' in tweak and 'fabs(translation.x) > 12' in tweak

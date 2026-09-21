@@ -19,6 +19,7 @@ NSArray<NSDictionary *> *BCXQuickActionsForIconView(NSString *bundleID, id iconV
 void BCXFetchQuickActions(NSString *bundleID, id iconView, void (^completion)(NSArray<NSDictionary *> *items));
 NSArray<NSDictionary *> *BCXRequestQuickActions(NSString *bundleID);
 id BCXQuickActionItem(NSString *bundleID, NSString *type, id iconView);
+void BCXCacheQuickActions(NSString *bundleID, NSArray *actions);
 CGFloat BCXIconSize(void);
 void BCXSetIconSize(CGFloat size);
 NSString *BCXSymbol(NSDictionary *item);

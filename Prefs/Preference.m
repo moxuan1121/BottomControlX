@@ -1,15 +1,10 @@
 #import <UIKit/UIKit.h>
 #import <Preferences/PSListController.h>
 #import <Preferences/PSSpecifier.h>
-#import <Preferences/PSListItemsController.h>
 #import <Preferences/PSSliderTableCell.h>
 #import <spawn.h>
 #import "../Common.h"
 #import "../PanelData.h"
-
-@interface PSSpecifier (BCXChoices)
-- (void)setValues:(NSArray *)values titles:(NSArray *)titles;
-@end
 
 @interface UIImage (BCXSettingsIcon)
 + (UIImage *)imageNamed:(NSString *)name inBundle:(NSBundle *)bundle;
@@ -24,13 +19,15 @@
 
 @implementation BottomControlXController
 
-- (PSSpecifier *)choiceNamed:(NSString *)name key:(NSString *)key defaultValue:(id)defaultValue values:(NSArray *)values titles:(NSArray *)titles {
+- (PSSpecifier *)sliderNamed:(NSString *)name key:(NSString *)key defaultValue:(CGFloat)defaultValue minimum:(CGFloat)minimum maximum:(CGFloat)maximum {
     PSSpecifier *item = [PSSpecifier preferenceSpecifierNamed:name target:self
         set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
-        detail:PSListItemsController.class cell:PSLinkListCell edit:Nil];
+        detail:Nil cell:PSSliderCell edit:Nil];
     [item setProperty:key forKey:@"key"];
-    [item setProperty:defaultValue forKey:@"default"];
-    [item setValues:values titles:titles];
+    [item setProperty:@(defaultValue) forKey:@"default"];
+    [item setProperty:@(minimum) forKey:@"min"];
+    [item setProperty:@(maximum) forKey:@"max"];
+    [item setProperty:@YES forKey:@"showValue"];
     return item;
 }
 
@@ -64,12 +61,9 @@
         footer:@"只在避开屏幕角落和底部中央后的左右区域触发。每个区域只选一项时直接运行，选择多项时显示面板；其他位置保留系统手势。"]];
     [items addObject:[self buttonNamed:@"左侧区域动作" action:@selector(openLeftSettings)]];
     [items addObject:[self buttonNamed:@"右侧区域动作" action:@selector(openRightSettings)]];
-    NSArray *rangeValues = @[@0.15, @0.20, @0.25, @0.30, @0.35, @0.40];
-    NSArray *rangeTitles = @[@"15%", @"20%", @"25%", @"30%", @"35%", @"40%"];
-    [items addObject:[self choiceNamed:@"左侧区域宽度" key:@"leftValue" defaultValue:@0.25 values:rangeValues titles:rangeTitles]];
-    [items addObject:[self choiceNamed:@"右侧区域宽度" key:@"rightWidth" defaultValue:@0.25 values:rangeValues titles:rangeTitles]];
-    [items addObject:[self choiceNamed:@"屏幕角落避让" key:@"edgeInsetValue" defaultValue:@0.10
-        values:@[@0.06, @0.08, @0.10, @0.12, @0.15] titles:@[@"6%", @"8%", @"10%", @"12%", @"15%"]]];
+    [items addObject:[self sliderNamed:@"左侧区域宽度" key:@"leftValue" defaultValue:0.25 minimum:0.10 maximum:0.40]];
+    [items addObject:[self sliderNamed:@"右侧区域宽度" key:@"rightWidth" defaultValue:0.25 minimum:0.10 maximum:0.40]];
+    [items addObject:[self sliderNamed:@"屏幕角落避让" key:@"edgeInsetValue" defaultValue:0.10 minimum:0.04 maximum:0.20]];
     PSSpecifier *debugAreas = [PSSpecifier preferenceSpecifierNamed:@"显示手势区域（调试）" target:self
         set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
         detail:Nil cell:PSSwitchCell edit:Nil];
