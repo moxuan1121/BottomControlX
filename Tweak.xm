@@ -13,7 +13,7 @@ static BOOL enable;
 static CGFloat leftValue;
 static CGFloat rightWidth;
 static BOOL showGestureAreas;
-static const CGFloat BCXCornerInset = 0.10;
+static const CGFloat BCXCornerInset = 0;
 
 static inline UIInterfaceOrientation getAppOrientation();
 static void BCXUpdateDebugOverlay(void);
@@ -500,6 +500,11 @@ static void BCXInstallOwnRecognizer(SBFluidSwitcherGestureManager *manager, SBGr
     BCXInstallOwnRecognizer(self, tongue);
 }
 
+- (BOOL)_shouldProtectEdgeLocation:(CGPoint)location edge:(NSUInteger)edge {
+    if (BCXClaimsX(location.x)) return YES;
+    return %orig;
+}
+
 %new
 - (void)bcx_handleOwnGesture:(UIPanGestureRecognizer *)recognizer {
     if (recognizer.state == UIGestureRecognizerStateBegan && !BCXBeginRecognizer(self, recognizer)) {
@@ -539,6 +544,18 @@ static void BCXInstallOwnRecognizer(SBFluidSwitcherGestureManager *manager, SBGr
 
 - (void)grabberTongueBeganPulling:(id)arg1 withDistance:(double)arg2 andVelocity:(double)arg3 andGesture:(id)arg4 {
     if (!BCXBeginSwipe(self)) %orig;
+}
+%end
+
+
+%hook SBMainSwitcherViewController
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)recognizer {
+    if ([recognizer isKindOfClass:UIPanGestureRecognizer.class]) {
+        UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)recognizer;
+        CGPoint velocity = [pan velocityInView:nil];
+        if (velocity.y < 0 && -velocity.y > fabs(velocity.x) && BCXClaimsX([pan locationInView:nil].x)) return NO;
+    }
+    return %orig;
 }
 %end
 
