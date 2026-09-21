@@ -32,6 +32,7 @@ assert "BCX_HANDLE_HEIGHT" in prefs and "BCX_HANDLE_POSITION" in prefs
 assert "pillHeight * 0.055" in panel and "horizontalInset = lineWidth * 0.85" in panel
 assert "left ? -1 : touchWidth - pillWidth + 1" in panel
 assert "visibleWidth = pillWidth - 1" in panel
+assert "left ? 2.5 : -1.5" in panel
 assert "BCX_PANEL_MIN_WIDTH" in prefs and "BCXPanelMinimumWidth()" in panel
 assert "sizeWithAttributes" in panel and "MIN(280, ceil(titleWidth))" in panel
 assert "distance >= 40 || velocity >= 600" in panel

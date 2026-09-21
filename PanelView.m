@@ -183,7 +183,7 @@ static void (^handleRunAction)(NSDictionary *item);
         UIView *line = [pill viewWithTag:11];
         CGFloat lineHeight = pillHeight * 0.9;
         CGFloat visibleWidth = pillWidth - 1;
-        CGFloat lineX = (visibleWidth - lineWidth) / 2 + (left ? 1 : 0);
+        CGFloat lineX = (visibleWidth - lineWidth) / 2 + (left ? 2.5 : -1.5);
         line.frame = CGRectMake(lineX, (pillHeight - lineHeight) / 2, lineWidth, lineHeight);
         line.layer.cornerRadius = lineWidth / 2;
     }
