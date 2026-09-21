@@ -46,8 +46,8 @@ assert 'bcx_handleOwnGesture:' in tweak and 'BCXInstallOwnRecognizer' in tweak
 assert 'static const CGFloat BCXCornerInset = 0;' in tweak
 assert 'BCXSuppressSystemSwipe' in tweak
 assert '_shouldProtectEdgeLocation' not in tweak
-assert 'BCXBeginRecognizer(manager, gesture);' in tweak
 assert 'BCXBeginRecognizer(manager, edgeGesture);' in tweak
+assert tweak.index('valueForKey:@"_edgePullGestureRecognizer"') < tweak.index('if ([gesture respondsToSelector:@selector(locationInView:)])')
 assert 'SBMainSwitcherViewController' in tweak and 'gestureRecognizerShouldBegin:' in tweak
 assert 'shouldBeginGestureAtStartingPoint:(CGPoint)point velocity:(CGPoint)velocity bounds:(CGRect)bounds' in tweak
 assert 'if (upward && BCXClaimsX(point.x)) return NO;' in tweak

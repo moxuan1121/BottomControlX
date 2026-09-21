@@ -477,18 +477,18 @@ static BOOL BCXBeginRecognizer(SBFluidSwitcherGestureManager *manager, UIPanGest
 static BOOL BCXSuppressSystemSwipe(SBFluidSwitcherGestureManager *manager, id gesture) {
     if (activeRecognizer) return YES;
     @try {
-        if ([gesture respondsToSelector:@selector(locationInView:)]) {
-            CGPoint point = ((CGPoint (*)(id, SEL, id))objc_msgSend)(gesture, @selector(locationInView:), nil);
-            if (BCXClaimsX(point.x)) {
-                BCXBeginRecognizer(manager, gesture);
-                return YES;
-            }
-        }
         id edgeGesture = [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"];
         if ([edgeGesture respondsToSelector:@selector(locationInView:)]) {
             CGPoint point = ((CGPoint (*)(id, SEL, id))objc_msgSend)(edgeGesture, @selector(locationInView:), nil);
             if (BCXClaimsX(point.x)) {
                 BCXBeginRecognizer(manager, edgeGesture);
+                return YES;
+            }
+        }
+        if ([gesture respondsToSelector:@selector(locationInView:)]) {
+            CGPoint point = ((CGPoint (*)(id, SEL, id))objc_msgSend)(gesture, @selector(locationInView:), nil);
+            if (BCXClaimsX(point.x)) {
+                if ([edgeGesture isKindOfClass:UIPanGestureRecognizer.class]) BCXBeginRecognizer(manager, edgeGesture);
                 return YES;
             }
         }
