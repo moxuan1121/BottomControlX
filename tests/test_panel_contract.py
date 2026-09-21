@@ -54,6 +54,9 @@ for action_id in ('home', 'switcher', 'spotlight', 'screenshot_copy', 'recordscr
     assert f'@"id":@"{action_id}"' in data
 assert data.count('@"kind":@"builtin"') == 45
 assert '@"id":@"closeandrespring"' not in data
+assert 'objc_getClassList' not in tweak
+assert 'BCXKnownSingletonRespondingTo' in tweak
+assert 'ISOverlayEmbossedFolder' not in tweak
 assert 'SBMainSwitcherViewController' in tweak and 'gestureRecognizerShouldBegin:' in tweak
 assert 'shouldBeginGestureAtStartingPoint:(CGPoint)point velocity:(CGPoint)velocity bounds:(CGRect)bounds' in tweak
 assert 'if (upward && BCXClaimsX(point.x)) return NO;' in tweak
