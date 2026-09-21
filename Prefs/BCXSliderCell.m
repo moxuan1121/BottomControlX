@@ -9,6 +9,7 @@
 - (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier specifier:(PSSpecifier *)specifier {
     self = [super initWithStyle:style reuseIdentifier:reuseIdentifier specifier:specifier];
     if (!self) return nil;
+    self.selectionStyle = UITableViewCellSelectionStyleNone;
 
     _slider = [UISlider new];
     _slider.translatesAutoresizingMaskIntoConstraints = NO;
@@ -18,10 +19,12 @@
     _valueLabel = [UILabel new];
     _valueLabel.translatesAutoresizingMaskIntoConstraints = NO;
     _valueLabel.textAlignment = NSTextAlignmentRight;
-    _valueLabel.font = [UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightRegular];
+    _valueLabel.font = [UIFont monospacedDigitSystemFontOfSize:14 weight:UIFontWeightRegular];
     _valueLabel.textColor = UIColor.secondaryLabelColor;
     _valueLabel.userInteractionEnabled = YES;
-    [_valueLabel addGestureRecognizer:[[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(editValue:)]];
+    UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(editValue:)];
+    longPress.minimumPressDuration = 0.45;
+    [_valueLabel addGestureRecognizer:longPress];
     [self.contentView addSubview:_valueLabel];
 
     UILayoutGuide *margins = self.layoutMarginsGuide;

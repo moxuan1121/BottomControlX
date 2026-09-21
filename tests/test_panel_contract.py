@@ -43,7 +43,7 @@ for removed in ("SBFluidSwitcherGestureManager", "SBFluidSwitcherGestureExclusio
 assert "WFSpringBoardWorkflowRunnerClient" in tweak
 assert "initWithWorkflowIdentifier:" in tweak and "shortcuts://run-shortcut" not in tweak
 assert 'BCXRebootUserspace()' in tweak and '@"userspace"' in tweak
-assert 'jbroot("/basebin/jbctl")' in tweak and '"reboot_userspace"' in tweak
+assert 'jbroot("/basebin/libjailbreak.dylib")' in tweak and 'jbdRebootUserspace' in tweak
 assert 'ShortcutPanelHelper' not in tweak and 'TOOL_NAME' not in makefile
 assert not (root / "Helper.m").exists() and not (root / "HelperEntitlements.plist").exists()
 assert 'exec_cmd_suspended' not in tweak and 'jbclient_root_set_mac_label' not in tweak
@@ -54,11 +54,12 @@ assert "BCXAllQuickActions" in data and 'BCXRequestQuickActions(@"*")' in panel_
 assert 'activateShortcut:withBundleIdentifier:forIconView:' in tweak
 assert "UISearchResultsUpdating" in panel_settings and "localizedCaseInsensitiveContainsString" in panel_settings
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel30" in control
-assert 'BCXSliderCell.class' in prefs and 'cell:PSLinkCell' in prefs
+assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel31" in control
+assert 'BCXSliderCell.class' in prefs and 'cell:PSStaticTextCell' in prefs
 assert 'performGetter' in slider_cell and 'performSetterWithValue:' in slider_cell
 assert 'setProperty:@"BCXSliderCell"' not in prefs
 assert 'UILongPressGestureRecognizer' in slider_cell and 'UIKeyboardTypeDecimalPad' in slider_cell
+assert 'UITableViewCellSelectionStyleNone' in slider_cell and 'monospacedDigitSystemFontOfSize:14' in slider_cell
 assert 'tableView:(UITableView *)tableView willDisplayCell:' not in prefs
 assert "customSymbol" in data and "customImage" in data
 

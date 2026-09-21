@@ -69,13 +69,14 @@ static BOOL BCXSpawn(NSString *program, NSString *argument) {
 }
 
 static NSInteger BCXRebootUserspace(void) {
-    const char *helper = jbroot("/basebin/jbctl");
-    if (access(helper, X_OK) != 0) return -10;
-    pid_t pid = 0;
-    char *argv[] = {(char *)helper, (char *)"reboot_userspace", NULL};
-    extern char **environ;
-    int spawnResult = posix_spawn(&pid, helper, NULL, NULL, argv, environ);
-    return spawnResult == 0 ? 0 : -20 - spawnResult;
+    typedef int64_t (*BCXJBDRebootUserspace)(void);
+    void *library = dlopen(jbroot("/basebin/libjailbreak.dylib"), RTLD_NOW | RTLD_LOCAL);
+    if (!library) return -10;
+    BCXJBDRebootUserspace rebootUserspace = (BCXJBDRebootUserspace)dlsym(library, "jbdRebootUserspace");
+    if (!rebootUserspace) { dlclose(library); return -11; }
+    int64_t result = rebootUserspace();
+    dlclose(library);
+    return (NSInteger)result;
 }
 
 static id BCXIconViewForBundleID(NSString *bundleID) {

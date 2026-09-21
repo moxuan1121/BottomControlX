@@ -23,7 +23,7 @@
 - (PSSpecifier *)sliderForKey:(NSString *)key defaultValue:(CGFloat)defaultValue minimum:(CGFloat)minimum maximum:(CGFloat)maximum {
     PSSpecifier *item = [PSSpecifier preferenceSpecifierNamed:nil target:self
         set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
-        detail:Nil cell:PSLinkCell edit:Nil];
+        detail:Nil cell:PSStaticTextCell edit:Nil];
     [item setProperty:key forKey:@"key"];
     [item setProperty:@(defaultValue) forKey:@"default"];
     [item setProperty:@(minimum) forKey:@"min"];
