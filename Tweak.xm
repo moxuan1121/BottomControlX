@@ -375,6 +375,23 @@ static BOOL activeDelaysTouchesBegan;
 static BOOL activeDelaysTouchesEnded;
 static UIWindow *debugGestureWindow;
 
+static NSString *BCXZoneKeyAtX(CGFloat x) {
+    CGFloat width = UIScreen.mainScreen.bounds.size.width;
+    if (width <= 0) return nil;
+    CGFloat position = x / width;
+    CGFloat leftEnd = MIN(0.48, edgeInsetValue + leftValue);
+    CGFloat rightStart = MAX(0.52, 1 - edgeInsetValue - rightWidth);
+    if (position >= edgeInsetValue && position <= leftEnd) return BCX_LEFT_ITEMS;
+    if (position >= rightStart && position <= 1 - edgeInsetValue) return BCX_RIGHT_ITEMS;
+    return nil;
+}
+
+static BOOL BCXClaimsX(CGFloat x) {
+    if (!enable || getAppOrientation() != UIInterfaceOrientationPortrait || BCXIsLocked()) return NO;
+    NSString *zoneKey = BCXZoneKeyAtX(x);
+    return zoneKey && BCXPanelItemsForKey(zoneKey).count > 0;
+}
+
 static void BCXUpdateDebugOverlay(void) {
     if (!showGestureAreas) {
         debugGestureWindow.hidden = YES;
@@ -431,13 +448,7 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
     clearlyHorizontal |= fabs(velocity.x) > 300 && fabs(velocity.x) > fabs(velocity.y) * 1.8;
     if (clearlyHorizontal) return NO;
     if (showGestureAreas && !debugGestureWindow) BCXUpdateDebugOverlay();
-    CGFloat x = [recognizer locationInView:nil].x;
-    CGFloat width = UIScreen.mainScreen.bounds.size.width;
-    CGFloat position = x / width;
-    CGFloat leftEnd = MIN(0.48, edgeInsetValue + leftValue);
-    CGFloat rightStart = MAX(0.52, 1 - edgeInsetValue - rightWidth);
-    NSString *zoneKey = position >= edgeInsetValue && position <= leftEnd ? BCX_LEFT_ITEMS
-        : position >= rightStart && position <= 1 - edgeInsetValue ? BCX_RIGHT_ITEMS : nil;
+    NSString *zoneKey = BCXZoneKeyAtX([recognizer locationInView:nil].x);
     if (!zoneKey) return NO;
     NSArray *items = BCXPanelItemsForKey(zoneKey);
     if (!items.count) return NO;
@@ -468,6 +479,11 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
 
 %hook SBFluidSwitcherGestureManager
 
+- (BOOL)_shouldProtectEdgeLocation:(CGPoint)location edge:(NSUInteger)edge {
+    if (BCXClaimsX(location.x)) return YES;
+    return %orig;
+}
+
 %new
 - (void)bcx_handleGesture:(UIPanGestureRecognizer *)recognizer {
     if (activeRecognizer != recognizer) return;
@@ -497,6 +513,13 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
 
 - (void)grabberTongueBeganPulling:(id)arg1 withDistance:(double)arg2 andVelocity:(double)arg3 andGesture:(id)arg4 {
     if (!BCXBeginSwipe(self)) %orig;
+}
+%end
+
+
+%hook SBFluidSwitcherGestureExclusionTrapezoid
+- (BOOL)allowHorizontalSwipesOutsideTrapezoid {
+    return enable ? YES : %orig;
 }
 %end
 %ctor {

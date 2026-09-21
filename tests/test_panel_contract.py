@@ -41,6 +41,9 @@ assert 'BCXAllQuickActions' in data and 'BCXRequestQuickActions(@"*")' in panel_
 assert 'NSClassFromString(@"SBIconView")' in tweak and 'activateShortcut:withBundleIdentifier:forIconView:' in tweak
 assert 'setApplicationShortcutItems:' in tweak and 'BCXCacheQuickActions' in tweak and 'BCXQuickActionCache' in data
 assert 'recognizer.cancelsTouchesInView = YES' in tweak
+assert '_shouldProtectEdgeLocation:(CGPoint)location edge:(NSUInteger)edge' in tweak
+assert 'if (BCXClaimsX(location.x)) return YES;' in tweak
+assert 'allowHorizontalSwipesOutsideTrapezoid' in tweak
 assert 'UISearchResultsUpdating' in panel_settings and 'localizedCaseInsensitiveContainsString' in panel_settings
 assert 'showGestureAreas' in prefs and 'showGestureAreas' in tweak
 assert 'clearlyHorizontal' in tweak and 'fabs(translation.x) > 12' in tweak
