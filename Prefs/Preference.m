@@ -61,9 +61,10 @@
         footer:@"只在避开屏幕角落和底部中央后的左右区域触发。每个区域只选一项时直接运行，选择多项时显示面板；其他位置保留系统手势。"]];
     [items addObject:[self buttonNamed:@"左侧区域动作" action:@selector(openLeftSettings)]];
     [items addObject:[self buttonNamed:@"右侧区域动作" action:@selector(openRightSettings)]];
-    [items addObject:[self sliderNamed:@"左侧区域宽度" key:@"leftValue" defaultValue:0.25 minimum:0.10 maximum:0.40]];
-    [items addObject:[self sliderNamed:@"右侧区域宽度" key:@"rightWidth" defaultValue:0.25 minimum:0.10 maximum:0.40]];
-    [items addObject:[self sliderNamed:@"屏幕角落避让" key:@"edgeInsetValue" defaultValue:0.10 minimum:0.04 maximum:0.20]];
+    [items addObject:[self groupNamed:@"左侧触发宽度" footer:nil]];
+    [items addObject:[self sliderNamed:nil key:@"leftValue" defaultValue:0.25 minimum:0.10 maximum:0.40]];
+    [items addObject:[self groupNamed:@"右侧触发宽度" footer:nil]];
+    [items addObject:[self sliderNamed:nil key:@"rightWidth" defaultValue:0.25 minimum:0.10 maximum:0.40]];
     PSSpecifier *debugAreas = [PSSpecifier preferenceSpecifierNamed:@"显示手势区域（调试）" target:self
         set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
         detail:Nil cell:PSSwitchCell edit:Nil];

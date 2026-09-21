@@ -12,8 +12,8 @@
 static BOOL enable;
 static CGFloat leftValue;
 static CGFloat rightWidth;
-static CGFloat edgeInsetValue;
 static BOOL showGestureAreas;
+static const CGFloat BCXCornerInset = 0.10;
 
 static inline UIInterfaceOrientation getAppOrientation();
 static void BCXUpdateDebugOverlay(void);
@@ -24,7 +24,6 @@ static void settingsChanged(CFNotificationCenterRef center, void *observer, CFSt
     enable = (BOOL)[dict[@"enable"] ? : @YES boolValue];
     leftValue = (CGFloat)[dict[@"leftValue"] ? : @0.25 doubleValue];
     rightWidth = (CGFloat)[dict[@"rightWidth"] ? : @0.25 doubleValue];
-    edgeInsetValue = (CGFloat)[dict[@"edgeInsetValue"] ? : @0.10 doubleValue];
     showGestureAreas = (BOOL)[dict[@"showGestureAreas"] boolValue];
     dispatch_async(dispatch_get_main_queue(), ^{ BCXUpdateDebugOverlay(); });
 }
@@ -374,15 +373,16 @@ static BOOL activeCancelsTouches;
 static BOOL activeDelaysTouchesBegan;
 static BOOL activeDelaysTouchesEnded;
 static UIWindow *debugGestureWindow;
+static const void *BCXOwnRecognizerKey = &BCXOwnRecognizerKey;
 
 static NSString *BCXZoneKeyAtX(CGFloat x) {
     CGFloat width = UIScreen.mainScreen.bounds.size.width;
     if (width <= 0) return nil;
     CGFloat position = x / width;
-    CGFloat leftEnd = MIN(0.48, edgeInsetValue + leftValue);
-    CGFloat rightStart = MAX(0.52, 1 - edgeInsetValue - rightWidth);
-    if (position >= edgeInsetValue && position <= leftEnd) return BCX_LEFT_ITEMS;
-    if (position >= rightStart && position <= 1 - edgeInsetValue) return BCX_RIGHT_ITEMS;
+    CGFloat leftEnd = MIN(0.48, BCXCornerInset + leftValue);
+    CGFloat rightStart = MAX(0.52, 1 - BCXCornerInset - rightWidth);
+    if (position >= BCXCornerInset && position <= leftEnd) return BCX_LEFT_ITEMS;
+    if (position >= rightStart && position <= 1 - BCXCornerInset) return BCX_RIGHT_ITEMS;
     return nil;
 }
 
@@ -422,12 +422,12 @@ static void BCXUpdateDebugOverlay(void) {
     }
     CGRect bounds = scene.coordinateSpace.bounds;
     CGFloat width = bounds.size.width;
-    CGFloat leftEnd = MIN(0.48, edgeInsetValue + leftValue);
-    CGFloat rightStart = MAX(0.52, 1 - edgeInsetValue - rightWidth);
+    CGFloat leftEnd = MIN(0.48, BCXCornerInset + leftValue);
+    CGFloat rightStart = MAX(0.52, 1 - BCXCornerInset - rightWidth);
     UIView *left = [debugGestureWindow.rootViewController.view viewWithTag:1];
     UIView *right = [debugGestureWindow.rootViewController.view viewWithTag:2];
-    left.frame = CGRectMake(width * edgeInsetValue, bounds.size.height - 24, width * (leftEnd - edgeInsetValue), 24);
-    right.frame = CGRectMake(width * rightStart, bounds.size.height - 24, width * (1 - edgeInsetValue - rightStart), 24);
+    left.frame = CGRectMake(width * BCXCornerInset, bounds.size.height - 24, width * (leftEnd - BCXCornerInset), 24);
+    right.frame = CGRectMake(width * rightStart, bounds.size.height - 24, width * (1 - BCXCornerInset - rightStart), 24);
     left.backgroundColor = [UIColor.systemRedColor colorWithAlphaComponent:0.32];
     left.layer.borderColor = UIColor.systemRedColor.CGColor;
     right.backgroundColor = [UIColor.systemBlueColor colorWithAlphaComponent:0.32];
@@ -436,11 +436,8 @@ static void BCXUpdateDebugOverlay(void) {
     debugGestureWindow.hidden = NO;
 }
 
-static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
+static BOOL BCXBeginRecognizer(SBFluidSwitcherGestureManager *manager, UIPanGestureRecognizer *recognizer) {
     if (!enable || getAppOrientation() != UIInterfaceOrientationPortrait || BCXIsLocked()) return NO;
-    UIPanGestureRecognizer *recognizer = nil;
-    @try { recognizer = [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"]; }
-    @catch (NSException *exception) { return NO; }
     if (![recognizer isKindOfClass:UIPanGestureRecognizer.class]) return NO;
     CGPoint translation = [recognizer translationInView:nil];
     CGPoint velocity = [recognizer velocityInView:nil];
@@ -477,11 +474,40 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
     return YES;
 }
 
+static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
+    @try {
+        return BCXBeginRecognizer(manager, [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"]);
+    } @catch (NSException *exception) { return NO; }
+}
+
+static void BCXInstallOwnRecognizer(SBFluidSwitcherGestureManager *manager, SBGrabberTongue *tongue) {
+    @try {
+        UIView *container = [tongue valueForKey:@"_tongueContainer"];
+        if (![container isKindOfClass:UIView.class] || objc_getAssociatedObject(container, BCXOwnRecognizerKey)) return;
+        UIPanGestureRecognizer *recognizer = [[UIPanGestureRecognizer alloc] initWithTarget:manager action:@selector(bcx_handleOwnGesture:)];
+        recognizer.maximumNumberOfTouches = 1;
+        recognizer.cancelsTouchesInView = YES;
+        recognizer.delaysTouchesBegan = YES;
+        [container addGestureRecognizer:recognizer];
+        objc_setAssociatedObject(container, BCXOwnRecognizerKey, recognizer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    } @catch (NSException *exception) { }
+}
+
 %hook SBFluidSwitcherGestureManager
 
-- (BOOL)_shouldProtectEdgeLocation:(CGPoint)location edge:(NSUInteger)edge {
-    if (BCXClaimsX(location.x)) return YES;
-    return %orig;
+- (void)setDeckGrabberTongue:(SBGrabberTongue *)tongue {
+    %orig;
+    BCXInstallOwnRecognizer(self, tongue);
+}
+
+%new
+- (void)bcx_handleOwnGesture:(UIPanGestureRecognizer *)recognizer {
+    if (recognizer.state == UIGestureRecognizerStateBegan && !BCXBeginRecognizer(self, recognizer)) {
+        recognizer.enabled = NO;
+        recognizer.enabled = YES;
+        return;
+    }
+    [self bcx_handleGesture:recognizer];
 }
 
 %new
@@ -518,6 +544,12 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
 
 
 %hook SBFluidSwitcherGestureExclusionTrapezoid
+- (BOOL)shouldBeginGestureAtStartingPoint:(CGPoint)point velocity:(CGPoint)velocity bounds:(CGRect)bounds {
+    BOOL upward = velocity.y < 0 && -velocity.y > fabs(velocity.x);
+    if (upward && BCXClaimsX(point.x)) return NO;
+    return %orig;
+}
+
 - (BOOL)allowHorizontalSwipesOutsideTrapezoid {
     return enable ? YES : %orig;
 }

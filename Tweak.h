@@ -23,11 +23,12 @@
 @interface SBFluidSwitcherGestureManager : NSObject
 @property(retain, nonatomic) SBGrabberTongue *deckGrabberTongue;
 - (void)bcx_handleGesture:(UIPanGestureRecognizer *)recognizer;
-- (BOOL)_shouldProtectEdgeLocation:(CGPoint)location edge:(NSUInteger)edge;
+- (void)bcx_handleOwnGesture:(UIPanGestureRecognizer *)recognizer;
 @end
 
 @interface SBFluidSwitcherGestureExclusionTrapezoid : NSObject
 - (BOOL)allowHorizontalSwipesOutsideTrapezoid;
+- (BOOL)shouldBeginGestureAtStartingPoint:(CGPoint)point velocity:(CGPoint)velocity bounds:(CGRect)bounds;
 @end
 
 @interface SBFluidSwitcherViewController : UIViewController @end

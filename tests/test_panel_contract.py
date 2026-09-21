@@ -20,8 +20,9 @@ for zone in ("BCX_LEFT_ITEMS", "BCX_RIGHT_ITEMS"):
     assert zone in prefs and zone in tweak
 assert "BCX_CENTER_ITEMS" not in prefs and "BCX_CENTER_ITEMS" not in tweak
 assert 'key:@"leftValue"' in prefs and 'key:@"rightWidth"' in prefs
-assert 'key:@"edgeInsetValue"' in prefs
+assert 'key:@"edgeInsetValue"' not in prefs
 assert 'cell:PSSliderCell' in prefs and 'forKey:@"min"' in prefs and 'forKey:@"max"' in prefs
+assert 'groupNamed:@"左侧触发宽度"' in prefs and 'groupNamed:@"右侧触发宽度"' in prefs
 assert 'activeItems.count > 1' in tweak
 assert 'activeItems.count == 1' in tweak
 assert 'BCXFinishPanel(commit)' in tweak
@@ -33,16 +34,17 @@ assert 'jbclient_root_set_mac_label' in tweak
 assert 'exec_cmd_suspended' in tweak
 assert 'else if ([identifier isEqualToString:@"respring"]) kill(getpid(), SIGTERM);' in tweak
 assert 'BCXCloseBackgroundApps();\n        kill(getpid(), SIGTERM);' in tweak
-assert 'position >= edgeInsetValue && position <= leftEnd' in tweak
-assert 'position >= rightStart && position <= 1 - edgeInsetValue' in tweak
+assert 'position >= BCXCornerInset && position <= leftEnd' in tweak
+assert 'position >= rightStart && position <= 1 - BCXCornerInset' in tweak
 assert 'state == UIGestureRecognizerStateEnded && (distance >= 80 || velocity >= 700)' in tweak
 assert 'BCXApplicationQuickActions' in data
 assert 'BCXAllQuickActions' in data and 'BCXRequestQuickActions(@"*")' in panel_settings
 assert 'NSClassFromString(@"SBIconView")' in tweak and 'activateShortcut:withBundleIdentifier:forIconView:' in tweak
 assert 'setApplicationShortcutItems:' in tweak and 'BCXCacheQuickActions' in tweak and 'BCXQuickActionCache' in data
 assert 'recognizer.cancelsTouchesInView = YES' in tweak
-assert '_shouldProtectEdgeLocation:(CGPoint)location edge:(NSUInteger)edge' in tweak
-assert 'if (BCXClaimsX(location.x)) return YES;' in tweak
+assert 'bcx_handleOwnGesture:' in tweak and 'BCXInstallOwnRecognizer' in tweak
+assert 'shouldBeginGestureAtStartingPoint:(CGPoint)point velocity:(CGPoint)velocity bounds:(CGRect)bounds' in tweak
+assert 'if (upward && BCXClaimsX(point.x)) return NO;' in tweak
 assert 'allowHorizontalSwipesOutsideTrapezoid' in tweak
 assert 'UISearchResultsUpdating' in panel_settings and 'localizedCaseInsensitiveContainsString' in panel_settings
 assert 'showGestureAreas' in prefs and 'showGestureAreas' in tweak
