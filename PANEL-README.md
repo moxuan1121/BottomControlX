@@ -23,6 +23,6 @@ GitHub Actions 构建成功只证明可编译和打包。侧边窗口触摸穿�
 - 快捷指令列表以只读方式读取 iOS 15 的 `Shortcuts.sqlite`，运行时通过 iOS 15 的 `WFSpringBoardWorkflowRunnerClient` 按稳定 ID 从 SpringBoard 后台启动。需要显示界面或首次授权的指令仍可能需要用户交互。
 - 应用图标快捷操作合并 SpringBoard 可读取的静态、动态项目及长按菜单缓存，并通过 iOS 15 的 `SBIconView` 接口激活；不同应用的动态快捷操作仍需逐项实测。
 - 「重启 SpringBoard」只结束 SpringBoard；「关闭后台并重启 SB」会先结束后台应用，再结束 SpringBoard。
-- 用户空间重启首先按照 SquidGesturePro 基础动作报告中的 spawn 形状执行 `jbroot("/usr/bin/killall") -9 launchd` 并等待结果；失败时使用 Dopamine 2 `libjailbreak` 的 `exec_cmd_root` 以 root 子进程执行 `/basebin/jbctl reboot_userspace`，不再尝试修改 SpringBoard 自身身份。刷新图标依赖 roothide 环境中的 `uicache`。
+- 用户空间重启由随包安装的 `ShortcutPanelHelper` 执行。辅助工具带有 Dopamine 同类的 platform、no-sandbox 和 userspace-reboot entitlement，在自己的进程内切换 root 后直接调用 `reboot3(RB2_USERREBOOT)`；SpringBoard 只负责启动并检查工具结果。刷新图标依赖 roothide 环境中的 `uicache`。
 
 本项目基于 [ichitaso/BottomControlX](https://github.com/ichitaso/BottomControlX)，遵循原项目许可证。

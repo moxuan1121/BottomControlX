@@ -70,33 +70,16 @@ static BOOL BCXSpawn(NSString *program, NSString *argument) {
 }
 
 static NSInteger BCXRebootUserspace(void) {
-    const char *killall = jbroot("/usr/bin/killall");
-    if (access(killall, X_OK) == 0) {
-        pid_t pid = 0;
-        char *argv[] = {(char *)"killall", (char *)"-9", (char *)"launchd", NULL};
-        extern char **environ;
-        int spawnResult = posix_spawn(&pid, killall, NULL, NULL, argv, environ);
-        if (spawnResult == 0) {
-            int status = 0;
-            if (waitpid(pid, &status, 0) >= 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0) return 0;
-        }
-    }
-
-    const char *jbctl = jbroot("/basebin/jbctl");
-    if (access(jbctl, X_OK) != 0) return -10;
-    void *library = RTLD_DEFAULT;
-    typedef int (*BCXExecRootCommand)(const char *, ...);
-    BCXExecRootCommand execRootCommand = (BCXExecRootCommand)dlsym(library, "exec_cmd_root");
-    if (!execRootCommand) {
-        library = dlopen(jbroot("/basebin/libjailbreak.dylib"), RTLD_NOW | RTLD_LOCAL);
-        if (!library) library = dlopen(jbroot("/usr/lib/libjailbreak.dylib"), RTLD_NOW | RTLD_LOCAL);
-        execRootCommand = library ? (BCXExecRootCommand)dlsym(library, "exec_cmd_root") : NULL;
-    }
-    if (!execRootCommand) return -11;
-    sync();
-    int result = execRootCommand(jbctl, "reboot_userspace", NULL);
-    if (library != RTLD_DEFAULT) dlclose(library);
-    return result;
+    const char *helper = jbroot("/usr/libexec/ShortcutPanelHelper");
+    if (access(helper, X_OK) != 0) return -10;
+    pid_t pid = 0;
+    char *argv[] = {(char *)helper, NULL};
+    extern char **environ;
+    int spawnResult = posix_spawn(&pid, helper, NULL, NULL, argv, environ);
+    if (spawnResult != 0) return -20 - spawnResult;
+    int status = 0;
+    if (waitpid(pid, &status, 0) < 0 || !WIFEXITED(status)) return -30;
+    return WEXITSTATUS(status);
 }
 
 static id BCXIconViewForBundleID(NSString *bundleID) {

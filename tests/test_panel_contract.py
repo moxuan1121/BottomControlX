@@ -14,6 +14,8 @@ tweak = (root / "Tweak.xm").read_text(encoding="utf-8")
 header = (root / "Tweak.h").read_text(encoding="utf-8")
 common = (root / "Common.h").read_text(encoding="utf-8")
 control = (root / "control").read_text(encoding="utf-8")
+helper = (root / "Helper.m").read_text(encoding="utf-8")
+makefile = (root / "Makefile").read_text(encoding="utf-8")
 
 for zone in ("BCX_LEFT_ITEMS", "BCX_RIGHT_ITEMS"):
     assert zone in prefs and zone in panel
@@ -39,10 +41,11 @@ for removed in ("SBFluidSwitcherGestureManager", "SBFluidSwitcherGestureExclusio
 
 assert "WFSpringBoardWorkflowRunnerClient" in tweak
 assert "initWithWorkflowIdentifier:" in tweak and "shortcuts://run-shortcut" not in tweak
-assert 'BCXRebootUserspace()' in tweak and '"reboot_userspace"' in tweak
-assert 'jbroot("/usr/bin/killall")' in tweak and '(char *)"launchd"' in tweak
-assert 'dlsym(library, "exec_cmd_root")' in tweak
+assert 'BCXRebootUserspace()' in tweak and '@"userspace"' in tweak
+assert 'jbroot("/usr/libexec/ShortcutPanelHelper")' in tweak
 assert 'waitpid(pid, &status, 0)' in tweak
+assert 'setuid(0)' in helper and 'reboot3(BCXUserSpaceReboot)' in helper
+assert 'TOOL_NAME = ShortcutPanelHelper' in makefile and 'HelperEntitlements.plist' in makefile
 assert 'exec_cmd_suspended' not in tweak and 'jbclient_root_set_mac_label' not in tweak
 assert 'else if ([identifier isEqualToString:@"respring"]) kill(getpid(), SIGTERM);' in tweak
 assert 'BCXCloseBackgroundApps();\n        kill(getpid(), SIGTERM);' in tweak
@@ -51,7 +54,7 @@ assert "BCXAllQuickActions" in data and 'BCXRequestQuickActions(@"*")' in panel_
 assert 'activateShortcut:withBundleIdentifier:forIconView:' in tweak
 assert "UISearchResultsUpdating" in panel_settings and "localizedCaseInsensitiveContainsString" in panel_settings
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel26" in control
+assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel27" in control
 assert "customSymbol" in data and "customImage" in data
 
 db = sqlite3.connect(":memory:")
