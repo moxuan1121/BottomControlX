@@ -1,7 +1,7 @@
 ARCHS = arm64 arm64e
 
 BUNDLE_NAME = ShortcutPanel
-$(BUNDLE_NAME)_FILES = Preference.m PanelSettings.m ../PanelData.m
+$(BUNDLE_NAME)_FILES = Preference.m PanelSettings.m BCXSliderCell.m ../PanelData.m
 $(BUNDLE_NAME)_INSTALL_PATH = /Library/PreferenceBundles
 $(BUNDLE_NAME)_FRAMEWORKS = UIKit UniformTypeIdentifiers
 $(BUNDLE_NAME)_PRIVATE_FRAMEWORKS = Preferences

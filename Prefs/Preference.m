@@ -3,7 +3,6 @@
 #import <Preferences/PSSpecifier.h>
 #import <Preferences/PSSliderTableCell.h>
 #import <spawn.h>
-#import <objc/runtime.h>
 #import "../Common.h"
 #import "../PanelData.h"
 
@@ -18,18 +17,6 @@
 @interface BottomControlXController : PSListController
 @end
 
-static const void *BCXSliderLabelKey = &BCXSliderLabelKey;
-static const void *BCXSliderSpecifierKey = &BCXSliderSpecifierKey;
-
-static void BCXCollectViews(UIView *view, Class type, NSMutableArray *result) {
-    if ([view isKindOfClass:type]) [result addObject:view];
-    for (UIView *child in view.subviews) BCXCollectViews(child, type, result);
-}
-
-static NSString *BCXDecimal(CGFloat value) {
-    return [NSString stringWithFormat:@"%.2f", round(value * 100) / 100];
-}
-
 @implementation BottomControlXController
 
 - (PSSpecifier *)sliderForKey:(NSString *)key defaultValue:(CGFloat)defaultValue minimum:(CGFloat)minimum maximum:(CGFloat)maximum {
@@ -42,6 +29,7 @@ static NSString *BCXDecimal(CGFloat value) {
     [item setProperty:@(maximum) forKey:@"max"];
     [item setProperty:@YES forKey:@"showValue"];
     [item setProperty:@(0.01) forKey:@"increment"];
+    [item setProperty:@"BCXSliderCell" forKey:@"cellClass"];
     return item;
 }
 
@@ -114,65 +102,6 @@ static NSString *BCXDecimal(CGFloat value) {
         ?: [NSDictionary dictionaryWithContentsOfFile:LEGACY_PREF_PATH];
     if (prefs[key]) return prefs[key];
     return specifier.properties[@"default"];
-}
-
-- (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath {
-    [super tableView:tableView willDisplayCell:cell forRowAtIndexPath:indexPath];
-    NSMutableArray *sliders = [NSMutableArray array];
-    BCXCollectViews(cell, UISlider.class, sliders);
-    if (!sliders.count) return;
-    UISlider *slider = sliders.firstObject;
-    PSSpecifier *specifier = [self specifierAtIndexPath:indexPath];
-    NSMutableArray *labels = [NSMutableArray array];
-    BCXCollectViews(cell, UILabel.class, labels);
-    UILabel *valueLabel = labels.lastObject;
-    if (!valueLabel || valueLabel == cell.textLabel) return;
-    valueLabel.userInteractionEnabled = YES;
-    valueLabel.font = [UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightRegular];
-    valueLabel.text = BCXDecimal(slider.value);
-    objc_setAssociatedObject(slider, BCXSliderLabelKey, valueLabel, OBJC_ASSOCIATION_ASSIGN);
-    objc_setAssociatedObject(slider, BCXSliderSpecifierKey, specifier, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    objc_setAssociatedObject(valueLabel, BCXSliderSpecifierKey, specifier, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    [slider addTarget:self action:@selector(precisionSliderChanged:) forControlEvents:UIControlEventValueChanged];
-    [slider addTarget:self action:@selector(precisionSliderEnded:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
-    if (!valueLabel.gestureRecognizers.count)
-        [valueLabel addGestureRecognizer:[[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(editSliderValue:)]];
-}
-
-- (void)precisionSliderChanged:(UISlider *)slider {
-    ((UILabel *)objc_getAssociatedObject(slider, BCXSliderLabelKey)).text = BCXDecimal(slider.value);
-}
-
-- (void)precisionSliderEnded:(UISlider *)slider {
-    CGFloat value = round(slider.value * 100) / 100;
-    slider.value = value;
-    [self setPreferenceValue:@(value) specifier:objc_getAssociatedObject(slider, BCXSliderSpecifierKey)];
-    [self precisionSliderChanged:slider];
-}
-
-- (void)editSliderValue:(UILongPressGestureRecognizer *)gesture {
-    if (gesture.state != UIGestureRecognizerStateBegan) return;
-    PSSpecifier *specifier = objc_getAssociatedObject(gesture.view, BCXSliderSpecifierKey);
-    CGFloat current = [[self readPreferenceValue:specifier] doubleValue];
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"输入数值" message:@"最多保留两位小数" preferredStyle:UIAlertControllerStyleAlert];
-    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
-        field.keyboardType = UIKeyboardTypeDecimalPad;
-        field.text = BCXDecimal(current);
-        [field selectAll:nil];
-    }];
-    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"保存" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        NSString *text = [alert.textFields.firstObject.text stringByReplacingOccurrencesOfString:@"," withString:@"."];
-        NSScanner *scanner = [NSScanner scannerWithString:text];
-        double entered = 0;
-        if (![scanner scanDouble:&entered] || !scanner.isAtEnd) return;
-        CGFloat minimum = [specifier.properties[@"min"] doubleValue];
-        CGFloat maximum = [specifier.properties[@"max"] doubleValue];
-        CGFloat value = round(MAX(minimum, MIN(maximum, entered)) * 100) / 100;
-        [self setPreferenceValue:@(value) specifier:specifier];
-        [self reloadSpecifier:specifier animated:NO];
-    }]];
-    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)openLeftSettings { [self openZone:BCX_LEFT_ITEMS title:@"左侧手柄动作"]; }
