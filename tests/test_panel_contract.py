@@ -54,8 +54,10 @@ assert "BCXAllQuickActions" in data and 'BCXRequestQuickActions(@"*")' in panel_
 assert 'activateShortcut:withBundleIdentifier:forIconView:' in tweak
 assert "UISearchResultsUpdating" in panel_settings and "localizedCaseInsensitiveContainsString" in panel_settings
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel29" in control
-assert '@"BCXSliderCell"' in prefs and 'performGetter' in slider_cell and 'performSetterWithValue:' in slider_cell
+assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel30" in control
+assert 'BCXSliderCell.class' in prefs and 'cell:PSLinkCell' in prefs
+assert 'performGetter' in slider_cell and 'performSetterWithValue:' in slider_cell
+assert 'setProperty:@"BCXSliderCell"' not in prefs
 assert 'UILongPressGestureRecognizer' in slider_cell and 'UIKeyboardTypeDecimalPad' in slider_cell
 assert 'tableView:(UITableView *)tableView willDisplayCell:' not in prefs
 assert "customSymbol" in data and "customImage" in data

@@ -3,6 +3,7 @@
 #import <Preferences/PSSpecifier.h>
 #import <Preferences/PSSliderTableCell.h>
 #import <spawn.h>
+#import "BCXSliderCell.h"
 #import "../Common.h"
 #import "../PanelData.h"
 
@@ -22,14 +23,14 @@
 - (PSSpecifier *)sliderForKey:(NSString *)key defaultValue:(CGFloat)defaultValue minimum:(CGFloat)minimum maximum:(CGFloat)maximum {
     PSSpecifier *item = [PSSpecifier preferenceSpecifierNamed:nil target:self
         set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
-        detail:Nil cell:PSSliderCell edit:Nil];
+        detail:Nil cell:PSLinkCell edit:Nil];
     [item setProperty:key forKey:@"key"];
     [item setProperty:@(defaultValue) forKey:@"default"];
     [item setProperty:@(minimum) forKey:@"min"];
     [item setProperty:@(maximum) forKey:@"max"];
     [item setProperty:@YES forKey:@"showValue"];
     [item setProperty:@(0.01) forKey:@"increment"];
-    [item setProperty:@"BCXSliderCell" forKey:@"cellClass"];
+    [item setProperty:BCXSliderCell.class forKey:@"cellClass"];
     return item;
 }
 
