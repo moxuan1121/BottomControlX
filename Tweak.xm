@@ -85,29 +85,16 @@ static NSInteger BCXRebootUserspace(void) {
     const char *jbctl = jbroot("/basebin/jbctl");
     if (access(jbctl, X_OK) != 0) return -10;
     void *library = RTLD_DEFAULT;
-    typedef int (*BCXExecCommand)(const char *, ...);
-    BCXExecCommand execCommand = (BCXExecCommand)dlsym(library, "exec_cmd");
-    if (!execCommand) {
+    typedef int (*BCXExecRootCommand)(const char *, ...);
+    BCXExecRootCommand execRootCommand = (BCXExecRootCommand)dlsym(library, "exec_cmd_root");
+    if (!execRootCommand) {
         library = dlopen(jbroot("/basebin/libjailbreak.dylib"), RTLD_NOW | RTLD_LOCAL);
         if (!library) library = dlopen(jbroot("/usr/lib/libjailbreak.dylib"), RTLD_NOW | RTLD_LOCAL);
-        execCommand = library ? (BCXExecCommand)dlsym(library, "exec_cmd") : NULL;
+        execRootCommand = library ? (BCXExecRootCommand)dlsym(library, "exec_cmd_root") : NULL;
     }
-    if (!execCommand) return -11;
-
-    uid_t originalUser = getuid();
-    gid_t originalGroup = getgid();
-    int userResult = geteuid() == 0 ? 0 : setuid(0);
-    int groupResult = getegid() == 0 ? 0 : setgid(0);
-    if (userResult != 0 || groupResult != 0) {
-        if (groupResult == 0 && originalGroup != 0) setgid(originalGroup);
-        if (userResult == 0 && originalUser != 0) seteuid(originalUser);
-        if (library != RTLD_DEFAULT) dlclose(library);
-        return -12;
-    }
+    if (!execRootCommand) return -11;
     sync();
-    int result = execCommand(jbctl, "reboot_userspace", NULL);
-    if (originalGroup != 0) setgid(originalGroup);
-    if (originalUser != 0) seteuid(originalUser);
+    int result = execRootCommand(jbctl, "reboot_userspace", NULL);
     if (library != RTLD_DEFAULT) dlclose(library);
     return result;
 }

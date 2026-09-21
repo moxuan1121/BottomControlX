@@ -178,11 +178,13 @@ static void (^handleRunAction)(NSDictionary *item);
     for (UIView *handle in @[self.leftHandle, self.rightHandle]) {
         BOOL left = handle.tag == 1;
         UIView *pill = [handle viewWithTag:10];
-        pill.frame = CGRectMake(left ? 0 : touchWidth - pillWidth, 10, pillWidth, pillHeight);
+        pill.frame = CGRectMake(left ? -1 : touchWidth - pillWidth + 1, 10, pillWidth, pillHeight);
         pill.layer.cornerRadius = pillWidth / 2;
         UIView *line = [pill viewWithTag:11];
         CGFloat lineHeight = pillHeight * 0.9;
-        line.frame = CGRectMake((pillWidth - lineWidth) / 2, (pillHeight - lineHeight) / 2, lineWidth, lineHeight);
+        CGFloat visibleWidth = pillWidth - 1;
+        CGFloat lineX = (visibleWidth - lineWidth) / 2 + (left ? 1 : 0);
+        line.frame = CGRectMake(lineX, (pillHeight - lineHeight) / 2, lineWidth, lineHeight);
         line.layer.cornerRadius = lineWidth / 2;
     }
     [self reloadHandles];
