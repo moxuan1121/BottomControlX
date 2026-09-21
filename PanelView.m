@@ -47,10 +47,10 @@ static void (^handleRunAction)(NSDictionary *item);
     self.shade = shade;
 
     UIFont *labelFont = [UIFont systemFontOfSize:11];
-    CGFloat width = 104;
+    CGFloat width = BCXPanelMinimumWidth();
     for (NSDictionary *item in self.items) {
         CGFloat titleWidth = [item[@"title"] sizeWithAttributes:@{NSFontAttributeName:labelFont}].width + 24;
-        width = MAX(width, MIN(220, ceil(titleWidth)));
+        width = MAX(width, MIN(280, ceil(titleWidth)));
     }
     CGFloat iconSize = MIN(BCXIconSize(), 46);
     CGFloat cellHeight = iconSize + 42;
@@ -166,18 +166,23 @@ static void (^handleRunAction)(NSDictionary *item);
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     CGFloat pillHeight = BCXHandleHeight();
+    CGFloat pillWidth = MAX(18, MIN(38, pillHeight * 0.29));
     CGFloat touchHeight = pillHeight + 20;
+    CGFloat touchWidth = pillWidth + 12;
     CGFloat y = floor(self.view.bounds.size.height * BCXHandlePosition() - touchHeight / 2);
     y = MAX(0, MIN(self.view.bounds.size.height - touchHeight, y));
-    self.leftHandle.frame = CGRectMake(0, y, 28, touchHeight);
-    self.rightHandle.frame = CGRectMake(self.view.bounds.size.width - 28, y, 28, touchHeight);
+    self.leftHandle.frame = CGRectMake(0, y, touchWidth, touchHeight);
+    self.rightHandle.frame = CGRectMake(self.view.bounds.size.width - touchWidth, y, touchWidth, touchHeight);
     for (UIView *handle in @[self.leftHandle, self.rightHandle]) {
         BOOL left = handle.tag == 1;
         UIView *pill = [handle viewWithTag:10];
-        pill.frame = CGRectMake(left ? -4 : 16, 10, 16, pillHeight);
+        pill.frame = CGRectMake(left ? -4 : touchWidth - pillWidth + 4, 10, pillWidth, pillHeight);
+        pill.layer.cornerRadius = pillWidth / 2;
         UIView *line = [pill viewWithTag:11];
         CGFloat lineHeight = pillHeight * 0.9;
-        line.frame = CGRectMake(left ? 8 : 5, (pillHeight - lineHeight) / 2, 3, lineHeight);
+        CGFloat lineWidth = MAX(4, pillWidth * 0.24);
+        line.frame = CGRectMake((pillWidth - lineWidth) / 2, (pillHeight - lineHeight) / 2, lineWidth, lineHeight);
+        line.layer.cornerRadius = lineWidth / 2;
     }
     [self reloadHandles];
 }

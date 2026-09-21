@@ -70,6 +70,11 @@ CGFloat BCXHandlePosition(void) {
     return position >= 0.1 ? MIN(0.9, position) : 0.58;
 }
 
+CGFloat BCXPanelMinimumWidth(void) {
+    CGFloat width = [BCXPreferences()[BCX_PANEL_MIN_WIDTH] doubleValue];
+    return width >= 80 ? MIN(220, width) : 104;
+}
+
 NSArray<NSDictionary *> *BCXBuiltinActions(void) {
     return @[
         @{@"kind":@"builtin", @"id":@"control", @"title":@"控制中心", @"symbol":@"switch.2"},

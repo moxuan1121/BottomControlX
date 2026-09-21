@@ -8,6 +8,11 @@
 #import <dlfcn.h>
 #import <objc/runtime.h>
 #import <stdint.h>
+#import <sys/wait.h>
+
+extern int posix_spawnattr_set_persona_np(const posix_spawnattr_t *, uid_t, uint32_t);
+extern int posix_spawnattr_set_persona_uid_np(const posix_spawnattr_t *, uid_t);
+extern int posix_spawnattr_set_persona_gid_np(const posix_spawnattr_t *, gid_t);
 
 static BOOL enable;
 static void BCXRunPanelItem(NSDictionary *item);
@@ -72,10 +77,19 @@ static BOOL BCXRebootUserspace(void) {
     const char *jbctl = jbroot("/basebin/jbctl");
     if (access(jbctl, X_OK) != 0) return NO;
     sync();
+    posix_spawnattr_t attributes;
+    if (posix_spawnattr_init(&attributes) != 0) return NO;
+    posix_spawnattr_set_persona_np(&attributes, 99, 1);
+    posix_spawnattr_set_persona_uid_np(&attributes, 0);
+    posix_spawnattr_set_persona_gid_np(&attributes, 0);
     pid_t pid = 0;
     char *argv[] = {(char *)jbctl, (char *)"reboot_userspace", NULL};
     extern char **environ;
-    return posix_spawn(&pid, jbctl, NULL, NULL, argv, environ) == 0;
+    int spawnResult = posix_spawn(&pid, jbctl, NULL, &attributes, argv, environ);
+    posix_spawnattr_destroy(&attributes);
+    if (spawnResult != 0) return NO;
+    int status = 0;
+    return waitpid(pid, &status, 0) >= 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
 static id BCXIconViewForBundleID(NSString *bundleID) {

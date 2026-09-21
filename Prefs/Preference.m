@@ -65,6 +65,8 @@
     [items addObject:[self sliderForKey:BCX_HANDLE_HEIGHT defaultValue:84 minimum:48 maximum:160]];
     [items addObject:[self groupNamed:@"垂直位置" footer:@"数值表示手柄中心在屏幕高度中的位置。"]];
     [items addObject:[self sliderForKey:BCX_HANDLE_POSITION defaultValue:0.58 minimum:0.10 maximum:0.90]];
+    [items addObject:[self groupNamed:@"面板最小宽度" footer:@"长动作名称仍会自动拓宽面板。"]];
+    [items addObject:[self sliderForKey:BCX_PANEL_MIN_WIDTH defaultValue:104 minimum:80 maximum:220]];
 
     [items addObject:[self groupNamed:@"维护" footer:nil]];
     [items addObject:[self buttonNamed:@"重置全部设置" action:@selector(resetSettings)]];
