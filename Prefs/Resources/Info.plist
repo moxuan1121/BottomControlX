@@ -5,9 +5,11 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>zh_CN</string>
 	<key>CFBundleExecutable</key>
-	<string>BottomControlX</string>
+	<string>ShortcutPanel</string>
+	<key>CFBundleDisplayName</key>
+	<string>ShortcutPanel</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.ichitaso.bottomcontrolx</string>
+	<string>com.mox1121.shortcutpanel</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>

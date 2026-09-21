@@ -52,7 +52,7 @@
 
 - (NSArray *)specifiers {
     if (_specifiers) return _specifiers;
-    self.title = @"BottomControlX";
+    self.title = @"ShortcutPanel";
     NSMutableArray *items = [NSMutableArray array];
     PSSpecifier *item = [PSSpecifier preferenceSpecifierNamed:@"启用插件" target:self
         set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
@@ -71,6 +71,12 @@
     [items addObject:[self choiceNamed:@"右侧区域宽度" key:@"rightWidth" defaultValue:@0.25 values:rangeValues titles:rangeTitles]];
     [items addObject:[self choiceNamed:@"屏幕角落避让" key:@"edgeInsetValue" defaultValue:@0.10
         values:@[@0.06, @0.08, @0.10, @0.12, @0.15] titles:@[@"6%", @"8%", @"10%", @"12%", @"15%"]]];
+    PSSpecifier *debugAreas = [PSSpecifier preferenceSpecifierNamed:@"显示手势区域（调试）" target:self
+        set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
+        detail:Nil cell:PSSwitchCell edit:Nil];
+    [debugAreas setProperty:@"showGestureAreas" forKey:@"key"];
+    [debugAreas setProperty:@NO forKey:@"default"];
+    [items addObject:debugAreas];
 
     [items addObject:[self groupNamed:@"维护" footer:nil]];
     [items addObject:[self buttonNamed:@"重置全部设置" action:@selector(resetSettings)]];
@@ -84,15 +90,20 @@
 - (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
     NSString *key = specifier.properties[@"key"];
     if (!key || !value) return;
-    NSMutableDictionary *prefs = [NSMutableDictionary dictionaryWithContentsOfFile:PREF_PATH] ?: [NSMutableDictionary dictionary];
+    NSMutableDictionary *prefs = [NSMutableDictionary dictionaryWithContentsOfFile:PREF_PATH]
+        ?: [[NSDictionary dictionaryWithContentsOfFile:LEGACY_PREF_PATH] mutableCopy]
+        ?: [NSMutableDictionary dictionary];
     prefs[key] = value;
-    if ([prefs writeToFile:PREF_PATH atomically:YES])
+    if ([prefs writeToFile:PREF_PATH atomically:YES]) {
+        [[NSFileManager defaultManager] removeItemAtPath:LEGACY_PREF_PATH error:nil];
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR(Notify_Preferences), NULL, NULL, YES);
+    }
 }
 
 - (id)readPreferenceValue:(PSSpecifier *)specifier {
     NSString *key = specifier.properties[@"key"];
-    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
+    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH]
+        ?: [NSDictionary dictionaryWithContentsOfFile:LEGACY_PREF_PATH];
     if (prefs[key]) return prefs[key];
     return specifier.properties[@"default"];
 }
@@ -109,6 +120,7 @@
     [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
     [alert addAction:[UIAlertAction actionWithTitle:@"重置" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
         [[NSFileManager defaultManager] removeItemAtPath:PREF_PATH error:nil];
+        [[NSFileManager defaultManager] removeItemAtPath:LEGACY_PREF_PATH error:nil];
         [self reloadSpecifiers];
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR(Notify_Preferences), NULL, NULL, YES);
     }]];

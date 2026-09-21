@@ -54,7 +54,7 @@ static __weak UIWindow *previousKeyWindow;
     CGFloat cellWidth = width / 4;
     if (!self.items.count) {
         UILabel *empty = [[UILabel alloc] initWithFrame:CGRectMake(20, 40, width - 40, 100)];
-        empty.text = @"请先在 BottomControlX 设置中添加面板项目";
+        empty.text = @"请先在 ShortcutPanel 设置中添加面板项目";
         empty.numberOfLines = 0;
         empty.textAlignment = NSTextAlignmentCenter;
         empty.textColor = UIColor.secondaryLabelColor;

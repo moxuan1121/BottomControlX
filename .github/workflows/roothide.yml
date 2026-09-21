@@ -1,4 +1,4 @@
-name: Build iOS 15 roothide package
+name: Build ShortcutPanel iOS 15 roothide package
 
 on:
   push:
@@ -35,6 +35,6 @@ jobs:
       - name: Upload deb
         uses: actions/upload-artifact@v4
         with:
-          name: BottomControlX-iOS15-roothide
+          name: ShortcutPanel-iOS15-roothide
           path: packages/*.deb
           if-no-files-found: error

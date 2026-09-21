@@ -6,37 +6,77 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
     BCXPickerModePanel,
     BCXPickerModeShortcuts,
     BCXPickerModeApps,
-    BCXPickerModeQuickActions,
     BCXPickerModeBuiltins
 };
 
-@interface BCXPanelSettingsController : UITableViewController <UIDocumentPickerDelegate>
+@interface BCXPanelSettingsController : UITableViewController <UIDocumentPickerDelegate, UISearchResultsUpdating>
 @property(nonatomic) BCXPickerMode mode;
-@property(nonatomic, copy) NSString *bundleID;
 @property(nonatomic, copy) NSArray<NSDictionary *> *choices;
+@property(nonatomic, copy) NSArray<NSDictionary *> *filteredChoices;
+@property(nonatomic, copy) NSArray<NSDictionary *> *appGroups;
+@property(nonatomic, strong) UISearchController *itemSearchController;
 @property(nonatomic, copy) NSString *zoneKey;
 @property(nonatomic) NSInteger editingIndex;
-- (instancetype)initWithMode:(BCXPickerMode)mode bundleID:(NSString *)bundleID title:(NSString *)title;
+- (instancetype)initWithMode:(BCXPickerMode)mode title:(NSString *)title;
 - (instancetype)initWithZoneKey:(NSString *)zoneKey title:(NSString *)title;
 @end
 
 @implementation BCXPanelSettingsController
+
+- (NSArray<NSDictionary *> *)visibleChoices {
+    return self.filteredChoices ?: self.choices ?: @[];
+}
+
+- (void)applySearchText:(NSString *)text {
+    NSString *query = [text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    if (!query.length) self.filteredChoices = self.choices;
+    else {
+        NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(NSDictionary *item, NSDictionary *bindings) {
+            NSString *haystack = [NSString stringWithFormat:@"%@ %@ %@ %@", item[@"title"] ?: @"",
+                item[@"appTitle"] ?: @"", item[@"app"] ?: @"", item[@"id"] ?: @""];
+            return [haystack localizedCaseInsensitiveContainsString:query];
+        }];
+        self.filteredChoices = [self.choices filteredArrayUsingPredicate:predicate];
+    }
+    if (self.mode == BCXPickerModeApps) {
+        NSMutableArray *groups = [NSMutableArray array];
+        NSMutableSet *seen = [NSMutableSet set];
+        for (NSDictionary *item in self.visibleChoices) {
+            NSString *bundleID = item[@"app"];
+            if (!bundleID.length || [seen containsObject:bundleID]) continue;
+            [seen addObject:bundleID];
+            [groups addObject:@{@"id":bundleID, @"title":item[@"appTitle"] ?: bundleID}];
+        }
+        self.appGroups = groups;
+    }
+}
+
+- (NSArray<NSDictionary *> *)itemsForAppSection:(NSInteger)section {
+    if (section < 0 || section >= self.appGroups.count) return @[];
+    NSString *bundleID = self.appGroups[section][@"id"];
+    return [self.visibleChoices filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *item, NSDictionary *bindings) {
+        return [item[@"app"] isEqualToString:bundleID];
+    }]];
+}
+
+- (NSDictionary *)itemAtIndexPath:(NSIndexPath *)path {
+    return self.mode == BCXPickerModeApps ? [self itemsForAppSection:path.section][path.row] : self.visibleChoices[path.row];
+}
 
 - (instancetype)init {
     return [self initWithZoneKey:BCX_LEFT_ITEMS title:@"左侧区域动作"];
 }
 
 - (instancetype)initWithZoneKey:(NSString *)zoneKey title:(NSString *)title {
-    self = [self initWithMode:BCXPickerModePanel bundleID:nil title:title];
+    self = [self initWithMode:BCXPickerModePanel title:title];
     if (self) _zoneKey = [zoneKey copy];
     return self;
 }
 
-- (instancetype)initWithMode:(BCXPickerMode)mode bundleID:(NSString *)bundleID title:(NSString *)title {
+- (instancetype)initWithMode:(BCXPickerMode)mode title:(NSString *)title {
     self = [super initWithStyle:UITableViewStyleInsetGrouped];
     if (self) {
         _mode = mode;
-        _bundleID = [bundleID copy];
         self.title = title;
     }
     return self;
@@ -49,6 +89,15 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
         self.navigationItem.rightBarButtonItem = self.editButtonItem;
         return;
     }
+    if (self.mode == BCXPickerModeApps || self.mode == BCXPickerModeShortcuts) {
+        self.itemSearchController = [[UISearchController alloc] initWithSearchResultsController:nil];
+        self.itemSearchController.searchResultsUpdater = self;
+        self.itemSearchController.obscuresBackgroundDuringPresentation = NO;
+        self.itemSearchController.searchBar.placeholder = @"搜索";
+        self.navigationItem.searchController = self.itemSearchController;
+        self.navigationItem.hidesSearchBarWhenScrolling = NO;
+        self.definesPresentationContext = YES;
+    }
     UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     [spinner startAnimating];
     self.tableView.backgroundView = spinner;
@@ -56,21 +105,21 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
         NSArray *items = @[];
         switch (self.mode) {
             case BCXPickerModeShortcuts: items = BCXShortcuts(); break;
-            case BCXPickerModeApps: items = BCXInstalledApps(); break;
-            case BCXPickerModeQuickActions: items = BCXRequestQuickActions(self.bundleID); break;
+            case BCXPickerModeApps: items = BCXRequestQuickActions(@"*"); break;
             case BCXPickerModeBuiltins: items = BCXBuiltinActions(); break;
             default: break;
         }
         dispatch_async(dispatch_get_main_queue(), ^{
             self.choices = items;
+            [self applySearchText:nil];
             UILabel *empty = [[UILabel alloc] initWithFrame:CGRectZero];
             empty.textAlignment = NSTextAlignmentCenter;
             empty.numberOfLines = 0;
             empty.textColor = UIColor.secondaryLabelColor;
             empty.text = self.mode == BCXPickerModeShortcuts
                 ? @"未读取到快捷指令。请确认“快捷指令”App 中已有指令。"
-                : self.mode == BCXPickerModeQuickActions
-                    ? @"此应用没有可读取的图标快捷操作。请确认 SpringBoard 已运行插件，并尝试长按应用图标查看系统菜单。"
+                : self.mode == BCXPickerModeApps
+                    ? @"没有读取到应用快捷方式。请确认 SpringBoard 已运行插件，并先长按应用图标生成动态菜单。"
                     : @"没有可用项目";
             self.tableView.backgroundView = items.count ? nil : empty;
             [self.tableView reloadData];
@@ -79,21 +128,25 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
+    if (self.mode == BCXPickerModeApps) return self.appGroups.count;
     return self.mode == BCXPickerModePanel ? 3 : 1;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    if (self.mode != BCXPickerModePanel) return self.choices.count;
+    if (self.mode == BCXPickerModeApps) return [self itemsForAppSection:section].count;
+    if (self.mode != BCXPickerModePanel) return self.visibleChoices.count;
     if (section == 0) return BCXPanelItemsForKey(self.zoneKey).count;
     return section == 1 ? 3 : 1;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    if (self.mode == BCXPickerModeApps) return self.appGroups[section][@"title"];
     if (self.mode != BCXPickerModePanel) return nil;
     return @[@"已选动作：拖动排序，左滑移除", @"添加动作", @"面板图标尺寸"][section];
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    if (self.mode == BCXPickerModeApps) return self.appGroups[section][@"id"];
     if (self.mode != BCXPickerModePanel || section != 0) return nil;
     return @"一项直接运行；两项或更多自动显示面板。";
 }
@@ -113,10 +166,9 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
                                            withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:smallIcon]];
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     } else if (!(self.mode == BCXPickerModePanel && path.section == 2)) {
-        NSDictionary *item = self.mode == BCXPickerModePanel ? BCXPanelItemsForKey(self.zoneKey)[path.row] : self.choices[path.row];
+        NSDictionary *item = self.mode == BCXPickerModePanel ? BCXPanelItemsForKey(self.zoneKey)[path.row] : [self itemAtIndexPath:path];
         cell.textLabel.text = item[@"title"];
-        cell.imageView.image = self.mode == BCXPickerModeApps ? BCXApplicationIcon(item[@"id"]) : BCXItemImage(item, smallIcon);
-        if (self.mode == BCXPickerModeApps) cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        cell.imageView.image = self.mode == BCXPickerModeApps ? BCXApplicationIcon(item[@"app"]) : BCXItemImage(item, smallIcon);
         if (self.mode == BCXPickerModePanel) cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         if (self.mode == BCXPickerModePanel && [item[@"kind"] isEqualToString:@"quick"]) cell.detailTextLabel.text = item[@"app"];
     }
@@ -146,18 +198,12 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
         if (path.section != 1) return;
         BCXPickerMode mode = [@[@(BCXPickerModeBuiltins), @(BCXPickerModeShortcuts), @(BCXPickerModeApps)][path.row] integerValue];
         NSString *title = @[@"系统与越狱动作", @"快捷指令", @"应用快捷方式"][path.row];
-        BCXPanelSettingsController *picker = [[BCXPanelSettingsController alloc] initWithMode:mode bundleID:nil title:title];
+        BCXPanelSettingsController *picker = [[BCXPanelSettingsController alloc] initWithMode:mode title:title];
         picker.zoneKey = self.zoneKey;
         [self.navigationController pushViewController:picker animated:YES];
         return;
     }
-    NSDictionary *item = self.choices[path.row];
-    if (self.mode == BCXPickerModeApps) {
-        BCXPanelSettingsController *picker = [[BCXPanelSettingsController alloc] initWithMode:BCXPickerModeQuickActions bundleID:item[@"id"] title:item[@"title"]];
-        picker.zoneKey = self.zoneKey;
-        [self.navigationController pushViewController:picker animated:YES];
-        return;
-    }
+    NSDictionary *item = [self itemAtIndexPath:path];
     NSMutableArray *items = [BCXPanelItemsForKey(self.zoneKey) mutableCopy];
     BOOL exists = NO;
     for (NSDictionary *saved in items) {
@@ -179,6 +225,11 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
             break;
         }
     }
+}
+
+- (void)updateSearchResultsForSearchController:(UISearchController *)searchController {
+    [self applySearchText:searchController.searchBar.text];
+    [self.tableView reloadData];
 }
 
 - (void)changeItemAtIndex:(NSInteger)index value:(id)value key:(NSString *)key {

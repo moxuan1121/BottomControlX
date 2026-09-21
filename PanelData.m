@@ -6,7 +6,8 @@
 #import <dlfcn.h>
 
 static NSDictionary *BCXPreferences(void) {
-    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
+    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH]
+        ?: [NSDictionary dictionaryWithContentsOfFile:LEGACY_PREF_PATH];
     return [prefs isKindOfClass:NSDictionary.class] ? prefs : @{};
 }
 
@@ -28,6 +29,7 @@ void BCXSavePanelItemsForKey(NSString *key, NSArray<NSDictionary *> *items) {
     NSMutableDictionary *prefs = [BCXPreferences() mutableCopy];
     prefs[key] = items;
     if ([prefs writeToFile:PREF_PATH atomically:YES]) {
+        [[NSFileManager defaultManager] removeItemAtPath:LEGACY_PREF_PATH error:nil];
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR(Notify_Preferences), NULL, NULL, YES);
     }
 }
@@ -41,6 +43,7 @@ void BCXSetIconSize(CGFloat size) {
     NSMutableDictionary *prefs = [BCXPreferences() mutableCopy];
     prefs[BCX_ICON_SIZE] = @(MAX(20, MIN(64, size)));
     if ([prefs writeToFile:PREF_PATH atomically:YES]) {
+        [[NSFileManager defaultManager] removeItemAtPath:LEGACY_PREF_PATH error:nil];
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR(Notify_Preferences), NULL, NULL, YES);
     }
 }
@@ -280,6 +283,21 @@ static NSArray<NSDictionary *> *BCXQuickActionDictionaries(NSArray *actions, NSS
         } @catch (NSException *exception) { }
     }
     return items;
+}
+
+NSArray<NSDictionary *> *BCXAllQuickActions(void) {
+    NSMutableArray *result = [NSMutableArray array];
+    for (NSDictionary *app in BCXInstalledApps()) {
+        NSString *bundleID = app[@"id"];
+        NSMutableArray *raw = [NSMutableArray arrayWithArray:BCXApplicationQuickActions(bundleID)];
+        [raw addObjectsFromArray:BCXStaticQuickActions(bundleID)];
+        for (NSDictionary *action in BCXQuickActionDictionaries(raw, bundleID)) {
+            NSMutableDictionary *entry = [action mutableCopy];
+            entry[@"appTitle"] = app[@"title"] ?: bundleID;
+            [result addObject:entry];
+        }
+    }
+    return result;
 }
 
 NSArray<NSDictionary *> *BCXQuickActionsForIconView(NSString *bundleID, id iconView) {

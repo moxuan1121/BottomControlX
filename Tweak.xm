@@ -22,15 +22,20 @@ static BOOL enable;
 static CGFloat leftValue;
 static CGFloat rightWidth;
 static CGFloat edgeInsetValue;
+static BOOL showGestureAreas;
 
 static inline UIInterfaceOrientation getAppOrientation();
+static void BCXUpdateDebugOverlay(void);
 
 static void settingsChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
-    NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
+    NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH]
+        ?: [NSDictionary dictionaryWithContentsOfFile:LEGACY_PREF_PATH];
     enable = (BOOL)[dict[@"enable"] ? : @YES boolValue];
     leftValue = (CGFloat)[dict[@"leftValue"] ? : @0.25 doubleValue];
     rightWidth = (CGFloat)[dict[@"rightWidth"] ? : @0.25 doubleValue];
     edgeInsetValue = (CGFloat)[dict[@"edgeInsetValue"] ? : @0.10 doubleValue];
+    showGestureAreas = (BOOL)[dict[@"showGestureAreas"] boolValue];
+    dispatch_async(dispatch_get_main_queue(), ^{ BCXUpdateDebugOverlay(); });
 }
 
 static id gControl = nil;
@@ -163,6 +168,10 @@ static void BCXQuickRequestReceived(CFNotificationCenterRef center, void *observ
         NSString *token = request[@"token"];
         NSString *bundleID = request[@"app"];
         if (![token isKindOfClass:NSString.class] || ![bundleID isKindOfClass:NSString.class]) return;
+        if ([bundleID isEqualToString:@"*"]) {
+            [@{@"token":token, @"actions":BCXAllQuickActions()} writeToFile:QUICK_IPC_PATH atomically:YES];
+            return;
+        }
         id iconView = BCXIconViewForBundleID(bundleID);
         __block BOOL replied = NO;
         void (^reply)(NSArray *) = ^(NSArray *actions) {
@@ -250,19 +259,17 @@ static void BCXCloseBackgroundApps(void) {
     }
 }
 
-// iOS 15 Intents runs the workflow from SpringBoard without opening Shortcuts.
+// iOS 15 VoiceShortcutClient runs the workflow from SpringBoard without opening Shortcuts.
 static BOOL BCXRunShortcut(NSString *identifier) {
-    if (!identifier.length || !dlopen("/System/Library/Frameworks/Intents.framework/Intents", RTLD_NOW | RTLD_LAZY)) return NO;
-    Class runnerClass = NSClassFromString(@"INShortcut");
+    NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:identifier];
+    if (!uuid) return NO;
+    if (!dlopen("/System/Library/PrivateFrameworks/VoiceShortcutClient.framework/VoiceShortcutClient", RTLD_LAZY)) return NO;
+    Class runnerClass = NSClassFromString(@"WFSpringBoardWorkflowRunnerClient");
     SEL initializer = @selector(initWithWorkflowIdentifier:);
-    if (![runnerClass instancesRespondToSelector:initializer] || ![runnerClass instancesRespondToSelector:@selector(start)]) return NO;
+    if (![runnerClass instancesRespondToSelector:initializer]) return NO;
     @try {
-        id runner = ((id (*)(id, SEL, id))objc_msgSend)([runnerClass alloc], initializer, identifier);
-        if (!runner) {
-            NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:identifier];
-            if (uuid) runner = ((id (*)(id, SEL, id))objc_msgSend)([runnerClass alloc], initializer, uuid);
-        }
-        if (!runner) return NO;
+        id runner = ((id (*)(id, SEL, id))objc_msgSend)([runnerClass alloc], initializer, uuid.UUIDString);
+        if (!runner || ![runner respondsToSelector:@selector(start)]) return NO;
         ((void (*)(id, SEL))objc_msgSend)(runner, @selector(start));
         return YES;
     } @catch (NSException *exception) { return NO; }
@@ -332,6 +339,51 @@ static inline UIInterfaceOrientation getAppOrientation() {
 
 static __weak UIPanGestureRecognizer *activeRecognizer;
 static NSArray<NSDictionary *> *activeItems;
+static UIWindow *debugGestureWindow;
+
+static void BCXUpdateDebugOverlay(void) {
+    if (!showGestureAreas) {
+        debugGestureWindow.hidden = YES;
+        debugGestureWindow = nil;
+        return;
+    }
+    UIWindowScene *scene = nil;
+    for (UIScene *candidate in UIApplication.sharedApplication.connectedScenes) {
+        if ([candidate isKindOfClass:UIWindowScene.class] && candidate.activationState == UISceneActivationStateForegroundActive) {
+            scene = (UIWindowScene *)candidate;
+            break;
+        }
+    }
+    if (!scene) return;
+    if (!debugGestureWindow) {
+        debugGestureWindow = [[UIWindow alloc] initWithWindowScene:scene];
+        debugGestureWindow.windowLevel = UIWindowLevelStatusBar + 100;
+        debugGestureWindow.userInteractionEnabled = NO;
+        UIViewController *controller = [UIViewController new];
+        controller.view.backgroundColor = UIColor.clearColor;
+        debugGestureWindow.rootViewController = controller;
+        for (NSInteger tag = 1; tag <= 2; tag++) {
+            UIView *area = [UIView new];
+            area.tag = tag;
+            area.layer.borderWidth = 1;
+            [controller.view addSubview:area];
+        }
+    }
+    CGRect bounds = scene.coordinateSpace.bounds;
+    CGFloat width = bounds.size.width;
+    CGFloat leftEnd = MIN(0.48, edgeInsetValue + leftValue);
+    CGFloat rightStart = MAX(0.52, 1 - edgeInsetValue - rightWidth);
+    UIView *left = [debugGestureWindow.rootViewController.view viewWithTag:1];
+    UIView *right = [debugGestureWindow.rootViewController.view viewWithTag:2];
+    left.frame = CGRectMake(width * edgeInsetValue, bounds.size.height - 24, width * (leftEnd - edgeInsetValue), 24);
+    right.frame = CGRectMake(width * rightStart, bounds.size.height - 24, width * (1 - edgeInsetValue - rightStart), 24);
+    left.backgroundColor = [UIColor.systemRedColor colorWithAlphaComponent:0.32];
+    left.layer.borderColor = UIColor.systemRedColor.CGColor;
+    right.backgroundColor = [UIColor.systemBlueColor colorWithAlphaComponent:0.32];
+    right.layer.borderColor = UIColor.systemBlueColor.CGColor;
+    debugGestureWindow.frame = bounds;
+    debugGestureWindow.hidden = NO;
+}
 
 static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
     if (!enable || getAppOrientation() != UIInterfaceOrientationPortrait || BCXIsLocked()) return NO;
@@ -339,6 +391,9 @@ static BOOL BCXBeginSwipe(SBFluidSwitcherGestureManager *manager) {
     @try { recognizer = [manager.deckGrabberTongue valueForKey:@"_edgePullGestureRecognizer"]; }
     @catch (NSException *exception) { return NO; }
     if (![recognizer isKindOfClass:UIPanGestureRecognizer.class]) return NO;
+    CGPoint velocity = [recognizer velocityInView:nil];
+    if (velocity.y >= 0 || -velocity.y <= fabs(velocity.x) * 1.15) return NO;
+    if (showGestureAreas && !debugGestureWindow) BCXUpdateDebugOverlay();
     CGFloat x = [recognizer locationInView:nil].x;
     CGFloat width = UIScreen.mainScreen.bounds.size.width;
     CGFloat position = x / width;

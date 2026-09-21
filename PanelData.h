@@ -14,6 +14,7 @@ NSArray<NSDictionary *> *BCXBuiltinActions(void);
 NSArray<NSDictionary *> *BCXShortcuts(void);
 NSArray<NSDictionary *> *BCXInstalledApps(void);
 NSArray<NSDictionary *> *BCXQuickActions(NSString *bundleID);
+NSArray<NSDictionary *> *BCXAllQuickActions(void);
 NSArray<NSDictionary *> *BCXQuickActionsForIconView(NSString *bundleID, id iconView);
 void BCXFetchQuickActions(NSString *bundleID, id iconView, void (^completion)(NSArray<NSDictionary *> *items));
 NSArray<NSDictionary *> *BCXRequestQuickActions(NSString *bundleID);
