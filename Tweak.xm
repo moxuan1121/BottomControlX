@@ -13,7 +13,7 @@
 static BOOL enable;
 static CFAbsoluteTime suppressBreadcrumbUntil;
 static void BCXRunPanelItem(NSDictionary *item);
-static void BCXCloseBackgroundApps(void);
+static void BCXCloseBackgroundApps(BOOL includeForeground);
 
 %hook SBDeviceApplicationSceneStatusBarBreadcrumbProvider
 + (BOOL)_shouldAddBreadcrumbToActivatingSceneEntity:(id)entity sceneHandle:(id)handle withTransitionContext:(id)context {
@@ -157,16 +157,13 @@ static BOOL BCXOpenApplication(NSString *bundleID) {
 }
 
 static void BCXClearAllBackgroundApps(void) {
-    BCXCloseBackgroundApps();
+    BCXCloseBackgroundApps(YES);
     Class switcherClass = NSClassFromString(@"SBMainSwitcherViewController");
     id switcher = [switcherClass respondsToSelector:@selector(sharedInstance)]
         ? ((id (*)(id, SEL))objc_msgSend)(switcherClass, @selector(sharedInstance)) : nil;
     SEL recent = @selector(recentAppLayouts);
     SEL remove = @selector(_deleteAppLayoutsMatchingBundleIdentifier:);
     if (![switcher respondsToSelector:recent] || ![switcher respondsToSelector:remove]) return;
-    id foreground = [(SpringBoard *)UIApplication.sharedApplication _accessibilityFrontMostApplication];
-    NSString *foregroundID = [foreground respondsToSelector:@selector(bundleIdentifier)]
-        ? ((id (*)(id, SEL))objc_msgSend)(foreground, @selector(bundleIdentifier)) : nil;
     NSArray *layouts = ((id (*)(id, SEL))objc_msgSend)(switcher, recent);
     for (id layout in [layouts copy]) {
         @try {
@@ -175,10 +172,7 @@ static void BCXClearAllBackgroundApps(void) {
             id first = items.firstObject;
             NSString *bundleID = [first respondsToSelector:@selector(bundleIdentifier)]
                 ? ((id (*)(id, SEL))objc_msgSend)(first, @selector(bundleIdentifier)) : nil;
-            id app = [[NSClassFromString(@"SBApplicationController") sharedInstance] applicationWithBundleIdentifier:bundleID];
-            id state = [app respondsToSelector:@selector(processState)] ? [app processState] : nil;
-            BOOL isForeground = [state respondsToSelector:@selector(isForeground)] && [state isForeground];
-            if (bundleID.length && !isForeground && ![bundleID isEqualToString:foregroundID] && ![bundleID isEqualToString:@"com.apple.springboard"])
+            if (bundleID.length && ![bundleID isEqualToString:@"com.apple.springboard"])
                 ((void (*)(id, SEL, id))objc_msgSend)(switcher, remove, bundleID);
         } @catch (NSException *exception) { }
     }
@@ -322,14 +316,13 @@ static id BCXQuickActionFallback(NSDictionary *item) {
     } @catch (NSException *exception) { return nil; }
 }
 
-static void BCXCloseBackgroundApps(void) {
+static void BCXCloseBackgroundApps(BOOL includeForeground) {
     Class controllerClass = NSClassFromString(@"SBApplicationController");
     id controller = [controllerClass respondsToSelector:@selector(sharedInstance)] ? [controllerClass sharedInstance] : nil;
     SEL runningSelector = @selector(runningApplications);
     if (![controller respondsToSelector:runningSelector]) return;
     id running = ((id (*)(id, SEL))objc_msgSend)(controller, runningSelector);
     if (![running isKindOfClass:NSArray.class]) return;
-    // ponytail: ends running background apps; add switcher-card removal only if users need it.
     for (id app in running) {
         @try {
             SEL internalSelector = @selector(isInternalApplication);
@@ -338,7 +331,7 @@ static void BCXCloseBackgroundApps(void) {
             id state = [app respondsToSelector:stateSelector]
                 ? ((id (*)(id, SEL))objc_msgSend)(app, stateSelector) : nil;
             if (![state respondsToSelector:@selector(pid)] || ![state respondsToSelector:@selector(isForeground)]) continue;
-            if (((BOOL (*)(id, SEL))objc_msgSend)(state, @selector(isForeground))) continue;
+            if (!includeForeground && ((BOOL (*)(id, SEL))objc_msgSend)(state, @selector(isForeground))) continue;
             pid_t pid = ((pid_t (*)(id, SEL))objc_msgSend)(state, @selector(pid));
             if (pid > 1 && pid != getpid()) kill(pid, SIGTERM);
         } @catch (NSException *exception) { }
@@ -420,11 +413,11 @@ static void BCXRunPanelItem(NSDictionary *item) {
     else if ([identifier isEqualToString:@"notification"]) [[%c(SBCoverSheetPresentationManager) sharedInstance] setCoverSheetPresented:YES animated:YES withCompletion:nil];
     else if ([identifier isEqualToString:@"screenshot"]) [(SpringBoard *)UIApplication.sharedApplication takeScreenshot];
     else if ([identifier isEqualToString:@"lock"]) [(SpringBoard *)UIApplication.sharedApplication _simulateLockButtonPress];
-    else if ([identifier isEqualToString:@"closeapps"]) BCXCloseBackgroundApps();
+    else if ([identifier isEqualToString:@"closeapps"]) BCXCloseBackgroundApps(NO);
     else if ([identifier isEqualToString:@"clearall"]) BCXClearAllBackgroundApps();
     else if ([identifier isEqualToString:@"respring"]) kill(getpid(), SIGTERM);
     else if ([identifier isEqualToString:@"closeandrespring"]) {
-        BCXCloseBackgroundApps();
+        BCXCloseBackgroundApps(NO);
         kill(getpid(), SIGTERM);
     } else if ([identifier isEqualToString:@"userspace"]) {
         BCXConfirm(@"重启用户空间", ^{ BCXRebootUserspace(); });

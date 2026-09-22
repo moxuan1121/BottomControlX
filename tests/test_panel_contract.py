@@ -50,7 +50,8 @@ assert 'ShortcutPanelHelper' not in tweak and 'TOOL_NAME' not in makefile
 assert not (root / "Helper.m").exists() and not (root / "HelperEntitlements.plist").exists()
 assert 'exec_cmd_suspended' not in tweak and 'jbclient_root_set_mac_label' not in tweak
 assert 'else if ([identifier isEqualToString:@"respring"]) kill(getpid(), SIGTERM);' in tweak
-assert 'BCXCloseBackgroundApps();\n        kill(getpid(), SIGTERM);' in tweak
+assert 'BCXCloseBackgroundApps(NO);\n        kill(getpid(), SIGTERM);' in tweak
+assert 'BCXCloseBackgroundApps(YES);' in tweak
 assert "BCXApplicationQuickActions" in data
 assert "BCXAllQuickActions" in data and 'BCXRequestQuickActions(@"*")' in panel_settings
 assert 'activateShortcut:withBundleIdentifier:forIconView:' in tweak
