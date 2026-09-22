@@ -120,6 +120,7 @@ NSArray<NSDictionary *> *BCXBuiltinActions(void) {
         @{@"kind":@"builtin", @"id":@"control", @"title":@"控制中心", @"symbol":@"switch.2"},
         @{@"kind":@"builtin", @"id":@"notification", @"title":@"通知中心", @"symbol":@"bell"},
         @{@"kind":@"builtin", @"id":@"screenshot", @"title":@"截图", @"symbol":@"camera.viewfinder"},
+        @{@"kind":@"builtin", @"id":@"copyshot", @"title":@"截图仅复制", @"symbol":@"doc.on.clipboard"},
         @{@"kind":@"builtin", @"id":@"lock", @"title":@"锁屏", @"symbol":@"lock"},
         @{@"kind":@"builtin", @"id":@"respring", @"title":@"重启 SpringBoard", @"symbol":@"arrow.clockwise"},
         @{@"kind":@"builtin", @"id":@"closeapps", @"title":@"关闭后台应用", @"symbol":@"xmark.app"},

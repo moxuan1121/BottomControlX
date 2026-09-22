@@ -368,6 +368,17 @@ static BOOL BCXRunShortcut(NSString *identifier) {
     } @catch (NSException *exception) { return NO; }
 }
 
+static void BCXCopyScreenshot(void) {
+    CFTypeRef (*capture)(void) = (CFTypeRef (*)(void))dlsym(RTLD_DEFAULT, "_UICreateScreenUIImage");
+    if (!capture) {
+        BCXAlert(@"此系统无法直接获取屏幕图像。");
+        return;
+    }
+    UIImage *image = (__bridge_transfer UIImage *)capture();
+    if (image) UIPasteboard.generalPasteboard.image = image;
+    else BCXAlert(@"截图失败。");
+}
+
 static BOOL BCXPowerAction(BOOL reboot) {
     dlopen("/System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices", RTLD_LAZY);
     Class serviceClass = NSClassFromString(@"FBSystemService");
@@ -426,6 +437,7 @@ static void BCXRunPanelItem(NSDictionary *item) {
     if ([identifier isEqualToString:@"control"]) showControlCenter();
     else if ([identifier isEqualToString:@"notification"]) [[%c(SBCoverSheetPresentationManager) sharedInstance] setCoverSheetPresented:YES animated:YES withCompletion:nil];
     else if ([identifier isEqualToString:@"screenshot"]) [(SpringBoard *)UIApplication.sharedApplication takeScreenshot];
+    else if ([identifier isEqualToString:@"copyshot"]) BCXCopyScreenshot();
     else if ([identifier isEqualToString:@"lock"]) [(SpringBoard *)UIApplication.sharedApplication _simulateLockButtonPress];
     else if ([identifier isEqualToString:@"closeapps"]) BCXCloseBackgroundApps(NO);
     else if ([identifier isEqualToString:@"clearall"]) BCXClearAllBackgroundApps();

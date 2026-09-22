@@ -68,7 +68,8 @@
 
     [items addObject:[self groupNamed:@"侧边手柄"
         footer:@"选择显示的一侧，按住手柄向屏幕内拖动呼出面板，往回拖可取消。"]];
-    [items addObject:[self buttonNamed:BCXHandleOnRight() ? @"手柄位置：右侧" : @"手柄位置：左侧" action:@selector(chooseHandleSide)]];
+    [items addObject:[PSSpecifier preferenceSpecifierNamed:@"手柄位置" target:self set:Nil get:Nil
+        detail:Nil cell:PSStaticTextCell edit:Nil]];
     PSSpecifier *link = [PSSpecifier preferenceSpecifierNamed:@"手柄动作" target:self set:Nil get:Nil
         detail:BCXPanelSettingsController.class cell:PSLinkCell edit:Nil];
     [link setProperty:BCX_LEFT_ITEMS forKey:@"zoneKey"];
@@ -126,19 +127,23 @@
     posix_spawn(&pid, path, NULL, NULL, args, environ);
 }
 
-- (void)chooseHandleSide {
-    UIAlertController *menu = [UIAlertController alertControllerWithTitle:@"手柄显示位置" message:nil preferredStyle:UIAlertControllerStyleActionSheet];
-    for (NSString *side in @[@"left", @"right"]) {
-        NSString *title = [side isEqualToString:@"left"] ? @"左侧" : @"右侧";
-        [menu addAction:[UIAlertAction actionWithTitle:title style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-            PSSpecifier *specifier = [PSSpecifier preferenceSpecifierNamed:nil target:self set:Nil get:Nil detail:Nil cell:PSStaticTextCell edit:Nil];
-            [specifier setProperty:BCX_HANDLE_SIDE forKey:@"key"];
-            [self setPreferenceValue:side specifier:specifier];
-            [self reloadSpecifiers];
-        }]];
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)path {
+    UITableViewCell *cell = [super tableView:tableView cellForRowAtIndexPath:path];
+    if ([cell.textLabel.text isEqualToString:@"手柄位置"]) {
+        UISegmentedControl *side = [[UISegmentedControl alloc] initWithItems:@[@"左", @"右"]];
+        side.frame = CGRectMake(0, 0, 120, 34);
+        side.selectedSegmentIndex = BCXHandleOnRight() ? 1 : 0;
+        [side addTarget:self action:@selector(handleSideChanged:) forControlEvents:UIControlEventValueChanged];
+        cell.accessoryView = side;
+        cell.selectionStyle = UITableViewCellSelectionStyleNone;
     }
-    [menu addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:menu animated:YES completion:nil];
+    return cell;
+}
+
+- (void)handleSideChanged:(UISegmentedControl *)control {
+    PSSpecifier *specifier = [PSSpecifier preferenceSpecifierNamed:nil target:self set:Nil get:Nil detail:Nil cell:PSStaticTextCell edit:Nil];
+    [specifier setProperty:BCX_HANDLE_SIDE forKey:@"key"];
+    [self setPreferenceValue:control.selectedSegmentIndex == 1 ? @"right" : @"left" specifier:specifier];
 }
 
 - (void)viewWillAppear:(BOOL)animated {

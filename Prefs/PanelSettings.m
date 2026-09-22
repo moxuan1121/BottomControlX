@@ -195,10 +195,11 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
     } else if (!(self.mode == BCXPickerModePanel && path.section == 2)) {
         NSDictionary *item = self.mode == BCXPickerModePanel ? BCXPanelItemsForKey(self.zoneKey)[path.row] : [self itemAtIndexPath:path];
         cell.textLabel.text = item[@"title"];
-        cell.imageView.image = self.mode == BCXPickerModeApps
+        UIImage *itemIcon = self.mode == BCXPickerModeApps
             ? BCXScaledSettingsIcon(BCXApplicationIcon(item[@"app"]))
             : self.mode == BCXPickerModeOpenApps ? BCXScaledSettingsIcon(BCXApplicationIcon(item[@"id"]))
             : BCXItemImage(item, smallIcon);
+        cell.imageView.image = BCXScaledSettingsIcon(itemIcon);
         if (self.mode == BCXPickerModePanel) cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         if (self.mode == BCXPickerModePanel && [item[@"kind"] isEqualToString:@"quick"]) cell.detailTextLabel.text = item[@"app"];
     }

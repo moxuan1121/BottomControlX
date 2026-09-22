@@ -22,7 +22,8 @@ for removed in ("BCX_CENTER_ITEMS", "leftValue", "rightWidth", "edgeInsetValue",
     assert removed not in prefs and removed not in tweak
 
 assert 'groupNamed:@"侧边手柄"' in prefs
-assert '@"手柄动作"' in prefs and 'chooseHandleSide' in prefs
+assert '@"手柄动作"' in prefs and 'handleSideChanged:' in prefs
+assert 'UISegmentedControl' in prefs and '@[@"左", @"右"]' in prefs
 assert 'BCXHandleOnRight()' in panel and 'BCX_HANDLE_SIDE' in prefs
 assert "BCXConfigureSideHandles" in tweak and "BCXBeginSidePanel" in panel
 assert "BCXHandleWindow" in panel and "hitTest:(CGPoint)point" in panel
@@ -60,7 +61,10 @@ assert '@"手柄外观"' in prefs and "BCXHandleAppearanceController" in prefs
 assert "BCXPickerModeOpenApps" in panel_settings and 'BCXOpenApplication(identifier)' in tweak
 assert '[@"kind"] isEqualToString:@"app"' in data
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: 侧边捷径" in control and "Version: 1.0.1+panel37" in control
+assert "Name: 侧边捷径" in control and "Version: 1.0.1+panel38" in control
+assert 'BCXScaledSettingsIcon(itemIcon)' in panel_settings
+assert '@"copyshot"' in data and 'BCXCopyScreenshot()' in tweak
+assert '_UICreateScreenUIImage' in tweak and 'UIPasteboard.generalPasteboard.image = image' in tweak
 assert 'localizedStringForKey:key value:key table:@"InfoPlist"' in data
 assert '_simulateHomeButtonPress' in tweak and 'launchApplicationWithIdentifier:suspended:' in tweak
 assert '@"clearall"' in data and 'BCXClearAllBackgroundApps()' in tweak
