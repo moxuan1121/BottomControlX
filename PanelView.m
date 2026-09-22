@@ -252,6 +252,8 @@ BOOL BCXBeginSidePanel(NSArray<NSDictionary *> *items, BOOL fromLeft, void (^run
     (void)controller.view;
     panelWindow.hidden = NO;
     panelWindow.userInteractionEnabled = NO;
+    [handleWindow.rootViewController.view.layer removeAllAnimations];
+    handleWindow.rootViewController.view.alpha = 1;
     return YES;
 }
 
@@ -277,8 +279,13 @@ void BCXFinishPanel(BOOL show) {
             panelWindow = nil;
             [previousKeyWindow makeKeyWindow];
             previousKeyWindow = nil;
+            UIView *handles = handleWindow.rootViewController.view;
+            handles.alpha = 0;
             handleWindow.hidden = NO;
             [(BCXHandleController *)handleWindow.rootViewController reloadHandles];
+            [UIView animateWithDuration:UIAccessibilityIsReduceMotionEnabled() ? 0 : 0.22
+                delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction
+                animations:^{ handles.alpha = 1; } completion:nil];
         }
     };
     [UIView animateWithDuration:show ? 0.34 : 0.24 delay:0 usingSpringWithDamping:show ? 0.86 : 1

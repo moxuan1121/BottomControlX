@@ -1,4 +1,6 @@
 #import <UIKit/UIKit.h>
+#import <Preferences/PSViewController.h>
+#import <Preferences/PSSpecifier.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "../PanelData.h"
 
@@ -10,7 +12,8 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
     BCXPickerModeBuiltins
 };
 
-@interface BCXPanelSettingsController : UITableViewController <UIDocumentPickerDelegate, UISearchResultsUpdating>
+@interface BCXPanelSettingsController : PSViewController <UITableViewDataSource, UITableViewDelegate, UIDocumentPickerDelegate, UISearchResultsUpdating>
+@property(nonatomic, strong) UITableView *tableView;
 @property(nonatomic) BCXPickerMode mode;
 @property(nonatomic, copy) NSArray<NSDictionary *> *choices;
 @property(nonatomic, copy) NSArray<NSDictionary *> *filteredChoices;
@@ -85,7 +88,7 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
 }
 
 - (instancetype)initWithMode:(BCXPickerMode)mode title:(NSString *)title {
-    self = [super initWithStyle:UITableViewStyleInsetGrouped];
+    self = [super init];
     if (self) {
         _mode = mode;
         self.title = title;
@@ -95,6 +98,11 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleInsetGrouped];
+    self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.tableView.dataSource = self;
+    self.tableView.delegate = self;
+    [self.view addSubview:self.tableView];
     self.tableView.rowHeight = 52;
     if (self.mode == BCXPickerModePanel) {
         self.navigationItem.rightBarButtonItem = self.editButtonItem;
@@ -402,6 +410,20 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     if (self.mode == BCXPickerModePanel) [self.tableView reloadData];
+}
+
+- (void)setSpecifier:(PSSpecifier *)specifier {
+    [super setSpecifier:specifier];
+    NSString *key = [specifier propertyForKey:@"zoneKey"];
+    if ([key isEqualToString:BCX_LEFT_ITEMS] || [key isEqualToString:BCX_RIGHT_ITEMS]) {
+        self.zoneKey = key;
+        self.title = specifier.name;
+    }
+}
+
+- (void)setEditing:(BOOL)editing animated:(BOOL)animated {
+    [super setEditing:editing animated:animated];
+    [self.tableView setEditing:editing animated:animated];
 }
 
 @end

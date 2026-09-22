@@ -11,8 +11,7 @@
 + (UIImage *)imageNamed:(NSString *)name inBundle:(NSBundle *)bundle;
 @end
 
-@interface BCXPanelSettingsController : UITableViewController
-- (instancetype)initWithZoneKey:(NSString *)zoneKey title:(NSString *)title;
+@interface BCXPanelSettingsController : PSViewController
 @end
 
 @interface BottomControlXController : PSListController
@@ -69,8 +68,14 @@
 
     [items addObject:[self groupNamed:@"侧边手柄"
         footer:@"配置动作后显示对应的圆角手柄。按住手柄向屏幕内拖动呼出面板，往回拖可取消。"]];
-    [items addObject:[self buttonNamed:@"左侧手柄动作" action:@selector(openLeftSettings)]];
-    [items addObject:[self buttonNamed:@"右侧手柄动作" action:@selector(openRightSettings)]];
+    for (NSDictionary *zone in @[@{@"title":@"左侧手柄动作", @"key":BCX_LEFT_ITEMS},
+                                  @{@"title":@"右侧手柄动作", @"key":BCX_RIGHT_ITEMS}]) {
+        PSSpecifier *link = [PSSpecifier preferenceSpecifierNamed:zone[@"title"] target:self set:Nil get:Nil
+            detail:BCXPanelSettingsController.class cell:PSLinkCell edit:Nil];
+        [link setProperty:zone[@"key"] forKey:@"zoneKey"];
+        [link setProperty:zone[@"key"] forKey:@"id"];
+        [items addObject:link];
+    }
     [items addObject:[PSSpecifier preferenceSpecifierNamed:@"手柄外观" target:self set:Nil get:Nil
         detail:BCXHandleAppearanceController.class cell:PSLinkCell edit:Nil]];
 
@@ -100,12 +105,6 @@
         ?: [NSDictionary dictionaryWithContentsOfFile:LEGACY_PREF_PATH];
     if (prefs[key]) return prefs[key];
     return specifier.properties[@"default"];
-}
-
-- (void)openLeftSettings { [self openZone:BCX_LEFT_ITEMS title:@"左侧手柄动作"]; }
-- (void)openRightSettings { [self openZone:BCX_RIGHT_ITEMS title:@"右侧手柄动作"]; }
-- (void)openZone:(NSString *)key title:(NSString *)title {
-    [self.navigationController pushViewController:[[BCXPanelSettingsController alloc] initWithZoneKey:key title:title] animated:YES];
 }
 
 - (void)resetSettings {

@@ -239,16 +239,14 @@ static NSArray *BCXIconQuickActions(id iconView) {
     if (!iconView) return @[];
     @try {
         SEL fetch = @selector(_fetchApplicationShortcutItemsIfAppropriate);
-        if ([iconView respondsToSelector:fetch]) {
-            ((void (*)(id, SEL))objc_msgSend)(iconView, fetch);
-            SEL effective = @selector(effectiveApplicationShortcutItems);
-            NSArray *items = [iconView respondsToSelector:effective]
-                ? BCXArrayFromFetchResult(((id (*)(id, SEL))objc_msgSend)(iconView, effective)) : @[];
-            if (items.count) return items;
+        if ([iconView respondsToSelector:fetch]) ((void (*)(id, SEL))objc_msgSend)(iconView, fetch);
+        NSMutableArray *items = [NSMutableArray array];
+        for (NSString *name in @[@"effectiveApplicationShortcutItems", @"applicationShortcutItems"]) {
+            SEL selector = NSSelectorFromString(name);
+            if ([iconView respondsToSelector:selector])
+                [items addObjectsFromArray:BCXArrayFromFetchResult(((id (*)(id, SEL))objc_msgSend)(iconView, selector))];
         }
-        SEL current = @selector(applicationShortcutItems);
-        return [iconView respondsToSelector:current]
-            ? BCXArrayFromFetchResult(((id (*)(id, SEL))objc_msgSend)(iconView, current)) : @[];
+        return items;
     } @catch (NSException *exception) { return @[]; }
 }
 
@@ -296,7 +294,7 @@ static NSArray *BCXRawQuickActions(NSString *bundleID, id iconView) {
     NSMutableArray *actions = [NSMutableArray array];
     NSMutableSet *seen = [NSMutableSet set];
     NSArray *cached = BCXQuickActionCache()[bundleID] ?: @[];
-    for (NSArray *source in @[cached, BCXApplicationQuickActions(bundleID), BCXIconQuickActions(iconView), BCXServiceQuickActions(bundleID), BCXStaticQuickActions(bundleID)]) {
+    for (NSArray *source in @[BCXIconQuickActions(iconView), cached, BCXApplicationQuickActions(bundleID), BCXServiceQuickActions(bundleID), BCXStaticQuickActions(bundleID)]) {
         for (id action in source) {
             @try {
                 SEL selector = @selector(type);
@@ -366,11 +364,11 @@ void BCXFetchQuickActions(NSString *bundleID, id iconView, void (^completion)(NS
     }
     @try {
         ((void (*)(id, SEL, NSUInteger, id, id))objc_msgSend)(service, fetch, 3, bundleID, ^(id result) {
-            NSArray *fetched = BCXArrayFromFetchResult(result);
-            NSMutableArray *all = [fetched mutableCopy];
-            for (id action in BCXRawQuickActions(bundleID, iconView)) if (![all containsObject:action]) [all addObject:action];
-            NSArray *items = BCXQuickActionDictionaries(all, bundleID);
-            dispatch_async(dispatch_get_main_queue(), ^{ completion(items); });
+            dispatch_async(dispatch_get_main_queue(), ^{
+                NSMutableArray *all = [BCXRawQuickActions(bundleID, iconView) mutableCopy];
+                [all addObjectsFromArray:BCXArrayFromFetchResult(result)];
+                completion(BCXQuickActionDictionaries(all, bundleID));
+            });
         });
     } @catch (NSException *exception) {
         completion(BCXQuickActionsForIconView(bundleID, iconView));

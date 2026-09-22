@@ -45,7 +45,7 @@ static void showControlCenter(void) {
     }
 }
 
-static void BCXAlert(NSString *message) {
+static void BCXPresentAlert(UIAlertController *alert) {
     UIViewController *root = nil;
     for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
         if (![scene isKindOfClass:UIWindowScene.class] || scene.activationState != UISceneActivationStateForegroundActive) continue;
@@ -55,9 +55,23 @@ static void BCXAlert(NSString *message) {
         if (root) break;
     }
     if (!root) return;
+    while (root.presentedViewController) root = root.presentedViewController;
+    [root presentViewController:alert animated:YES completion:nil];
+}
+
+static void BCXAlert(NSString *message) {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"快捷面板" message:message preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"知道了" style:UIAlertActionStyleDefault handler:nil]];
-    [root presentViewController:alert animated:YES completion:nil];
+    BCXPresentAlert(alert);
+}
+
+static void BCXConfirm(NSString *name, void (^action)(void)) {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:name
+        message:[NSString stringWithFormat:@"点击确认将执行%@", name] preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"确认" style:UIAlertActionStyleDestructive
+        handler:^(UIAlertAction *item) { action(); }]];
+    BCXPresentAlert(alert);
 }
 
 static BOOL BCXSpawn(NSString *program, NSString *argument) {
@@ -80,17 +94,13 @@ static void BCXRebootUserspace(void) {
         NSMutableArray *failures = [NSMutableArray array];
         for (NSString *program in [NSOrderedSet orderedSetWithArray:paths]) {
             const char *path = program.fileSystemRepresentation;
-            if (access(path, X_OK) != 0) {
-                int error = errno;
-                [failures addObject:[NSString stringWithFormat:@"%@：路径检查 %d", program, error]];
-                continue;
-            }
             BOOL jbctl = [program.lastPathComponent isEqualToString:@"jbctl"];
             char *argv[] = {(char *)path, (char *)(jbctl ? "reboot_userspace" : "reboot"),
                 jbctl ? NULL : (char *)"userspace", NULL};
             pid_t pid = 0;
             extern char **environ;
             int error = posix_spawn(&pid, path, NULL, NULL, argv, environ);
+            if (error == ENOENT || error == ENOTDIR) continue;
             if (error) {
                 [failures addObject:[NSString stringWithFormat:@"%@：启动 %d", program, error]];
                 continue;
@@ -112,7 +122,8 @@ static void BCXRebootUserspace(void) {
         }
         dispatch_async(dispatch_get_main_queue(), ^{
             running = NO;
-            BCXAlert([@"用户空间重启失败。\n" stringByAppendingString:[failures componentsJoinedByString:@"\n"]]);
+            BCXAlert(failures.count ? [@"用户空间重启失败。\n" stringByAppendingString:[failures componentsJoinedByString:@"\n"]]
+                : @"未找到越狱环境的用户空间重启工具。");
         });
     });
 }
@@ -160,23 +171,29 @@ static id BCXIconViewForBundleID(NSString *bundleID) {
 
 static void BCXFetchAllQuickActions(void (^completion)(NSArray<NSDictionary *> *items)) {
     NSArray<NSDictionary *> *apps = BCXInstalledApps();
-    NSMutableArray<NSDictionary *> *result = [NSMutableArray array];
+    NSMutableDictionary<NSString *, NSArray *> *resultsByApp = [NSMutableDictionary dictionary];
     dispatch_group_t group = dispatch_group_create();
     __block BOOL finished = NO;
     void (^finish)(void) = ^{
         if (finished) return;
         finished = YES;
-        completion([result copy]);
+        NSMutableArray *result = [NSMutableArray array];
+        for (NSDictionary *app in apps) {
+            for (NSDictionary *action in resultsByApp[app[@"id"]]) {
+                NSMutableDictionary *entry = [action mutableCopy];
+                entry[@"appTitle"] = app[@"title"] ?: app[@"id"];
+                [result addObject:entry];
+            }
+        }
+        completion(result);
     };
     for (NSDictionary *app in apps) {
         NSString *bundleID = app[@"id"];
+        id iconView = BCXIconViewForBundleID(bundleID);
+        resultsByApp[bundleID] = BCXQuickActionsForIconView(bundleID, iconView);
         dispatch_group_enter(group);
-        BCXFetchQuickActions(bundleID, BCXIconViewForBundleID(bundleID), ^(NSArray<NSDictionary *> *actions) {
-            for (NSDictionary *action in actions) {
-                NSMutableDictionary *entry = [action mutableCopy];
-                entry[@"appTitle"] = app[@"title"] ?: bundleID;
-                [result addObject:entry];
-            }
+        BCXFetchQuickActions(bundleID, iconView, ^(NSArray<NSDictionary *> *actions) {
+            if (!finished) resultsByApp[bundleID] = actions;
             dispatch_group_leave(group);
         });
     }
@@ -339,9 +356,9 @@ static void BCXRunPanelItem(NSDictionary *item) {
         BCXCloseBackgroundApps();
         kill(getpid(), SIGTERM);
     } else if ([identifier isEqualToString:@"userspace"]) {
-        BCXRebootUserspace();
+        BCXConfirm(@"重启用户空间", ^{ BCXRebootUserspace(); });
     } else if ([identifier isEqualToString:@"reboot"]) {
-        if (!BCXPowerAction(YES)) BCXAlert(@"无法重启手机。");
+        BCXConfirm(@"重启手机", ^{ if (!BCXPowerAction(YES)) BCXAlert(@"无法重启手机。"); });
     } else if ([identifier isEqualToString:@"shutdown"]) {
         if (!BCXPowerAction(NO)) BCXAlert(@"无法关闭手机。");
     } else if ([identifier isEqualToString:@"uicache"]) {
@@ -351,7 +368,7 @@ static void BCXRunPanelItem(NSDictionary *item) {
 
 static NSString *BCXBundleIDForIconView(id iconView) {
     @try {
-        for (NSString *name in @[@"applicationBundleIdentifier", @"bundleIdentifier"]) {
+        for (NSString *name in @[@"applicationBundleIdentifierForShortcuts", @"applicationBundleIdentifier", @"bundleIdentifier"]) {
             SEL selector = NSSelectorFromString(name);
             id value = [iconView respondsToSelector:selector]
                 ? ((id (*)(id, SEL))objc_msgSend)(iconView, selector) : nil;
@@ -373,6 +390,11 @@ static NSString *BCXBundleIDForIconView(id iconView) {
 - (void)setApplicationShortcutItems:(NSArray *)items {
     %orig;
     BCXCacheQuickActions(BCXBundleIDForIconView(self), items);
+}
+- (NSArray *)effectiveApplicationShortcutItems {
+    NSArray *items = %orig;
+    BCXCacheQuickActions(BCXBundleIDForIconView(self), items);
+    return items;
 }
 %end
 

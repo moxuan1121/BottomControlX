@@ -59,7 +59,12 @@ assert '@"手柄外观"' in prefs and "BCXHandleAppearanceController" in prefs
 assert "BCXPickerModeOpenApps" in panel_settings and 'BCXOpenApplication(identifier)' in tweak
 assert '[@"kind"] isEqualToString:@"app"' in data
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel33" in control
+assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel34" in control
+assert 'BCXConfirm(@"重启手机"' in tweak and 'BCXConfirm(@"重启用户空间"' in tweak
+assert 'detail:BCXPanelSettingsController.class cell:PSLinkCell' in prefs
+assert 'BCXPanelSettingsController : PSViewController' in panel_settings
+assert 'setSpecifier:(PSSpecifier *)specifier' in panel_settings
+assert 'resultsByApp[bundleID] = BCXQuickActionsForIconView' in tweak
 assert 'BCXSliderCell.class' in prefs and 'cell:PSStaticTextCell' in prefs
 assert 'performGetter' in slider_cell and 'performSetterWithValue:' in slider_cell
 assert 'setProperty:@"BCXSliderCell"' not in prefs
