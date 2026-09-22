@@ -17,13 +17,13 @@ common = (root / "Common.h").read_text(encoding="utf-8")
 control = (root / "control").read_text(encoding="utf-8")
 makefile = (root / "Makefile").read_text(encoding="utf-8")
 
-for zone in ("BCX_LEFT_ITEMS", "BCX_RIGHT_ITEMS"):
-    assert zone in prefs and zone in panel
+assert "BCX_LEFT_ITEMS" in prefs and "BCXHandleItems()" in panel
 for removed in ("BCX_CENTER_ITEMS", "leftValue", "rightWidth", "edgeInsetValue", "showGestureAreas"):
     assert removed not in prefs and removed not in tweak
 
 assert 'groupNamed:@"侧边手柄"' in prefs
-assert '@"左侧手柄动作"' in prefs and '@"右侧手柄动作"' in prefs
+assert '@"手柄动作"' in prefs and 'chooseHandleSide' in prefs
+assert 'BCXHandleOnRight()' in panel and 'BCX_HANDLE_SIDE' in prefs
 assert "BCXConfigureSideHandles" in tweak and "BCXBeginSidePanel" in panel
 assert "BCXHandleWindow" in panel and "hitTest:(CGPoint)point" in panel
 assert "pill.layer.cornerRadius = 8" in panel and "BCXHandleHeight()" in panel
@@ -60,7 +60,9 @@ assert '@"手柄外观"' in prefs and "BCXHandleAppearanceController" in prefs
 assert "BCXPickerModeOpenApps" in panel_settings and 'BCXOpenApplication(identifier)' in tweak
 assert '[@"kind"] isEqualToString:@"app"' in data
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel36" in control
+assert "Name: 侧边捷径" in control and "Version: 1.0.1+panel37" in control
+assert 'localizedStringForKey:key value:key table:@"InfoPlist"' in data
+assert '_simulateHomeButtonPress' in tweak and 'launchApplicationWithIdentifier:suspended:' in tweak
 assert '@"clearall"' in data and 'BCXClearAllBackgroundApps()' in tweak
 assert '[kind isEqualToString:@"url"]' in tweak and 'BCXSkipNextBreadcrumb()' in tweak
 assert '@"URL 链接"' in panel_settings and 'addURL' in panel_settings

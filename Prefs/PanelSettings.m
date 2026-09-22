@@ -78,7 +78,7 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
 }
 
 - (instancetype)init {
-    return [self initWithZoneKey:BCX_LEFT_ITEMS title:@"左侧区域动作"];
+    return [self initWithZoneKey:BCX_LEFT_ITEMS title:@"手柄动作"];
 }
 
 - (instancetype)initWithZoneKey:(NSString *)zoneKey title:(NSString *)title {

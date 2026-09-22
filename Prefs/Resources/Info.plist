@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>ShortcutPanel</string>
 	<key>CFBundleDisplayName</key>
-	<string>ShortcutPanel</string>
+	<string>侧边捷径</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.mox1121.shortcutpanel</string>
 	<key>CFBundleInfoDictionaryVersion</key>

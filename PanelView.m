@@ -199,15 +199,16 @@ static void (^handleRunAction)(NSDictionary *item);
 - (void)reloadHandles {
     // The scene's interface orientation is stable while a portrait app animates.
     BOOL portrait = UIInterfaceOrientationIsPortrait(self.view.window.windowScene.interfaceOrientation);
-    self.leftHandle.hidden = !portrait || BCXPanelItemsForKey(BCX_LEFT_ITEMS).count == 0;
-    self.rightHandle.hidden = !portrait || BCXPanelItemsForKey(BCX_RIGHT_ITEMS).count == 0;
+    BOOL available = portrait && BCXHandleItems().count > 0;
+    self.leftHandle.hidden = !available || BCXHandleOnRight();
+    self.rightHandle.hidden = !available || !BCXHandleOnRight();
 }
 
 - (void)dragHandle:(UIPanGestureRecognizer *)pan {
     BOOL fromLeft = pan.view.tag == 1;
     CGFloat distance = [pan translationInView:self.view].x * (fromLeft ? 1 : -1);
     if (pan.state == UIGestureRecognizerStateBegan) {
-        NSArray *items = BCXPanelItemsForKey(fromLeft ? BCX_LEFT_ITEMS : BCX_RIGHT_ITEMS);
+        NSArray *items = BCXHandleItems();
         if (!items.count || !BCXBeginSidePanel(items, fromLeft, handleRunAction)) { pan.enabled = NO; pan.enabled = YES; return; }
     }
     if (pan.state == UIGestureRecognizerStateBegan || pan.state == UIGestureRecognizerStateChanged) {

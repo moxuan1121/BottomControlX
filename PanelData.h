@@ -6,6 +6,7 @@ extern "C" {
 
 #define BCX_LEFT_ITEMS @"panelItemsLeft"
 #define BCX_RIGHT_ITEMS @"panelItemsRight"
+#define BCX_HANDLE_SIDE @"handleSide"
 #define BCX_ICON_SIZE @"panelIconSize"
 #define BCX_HANDLE_HEIGHT @"handleHeight"
 #define BCX_HANDLE_POSITION @"handlePosition"
@@ -15,6 +16,8 @@ extern "C" {
 #define BCX_PANEL_MIN_WIDTH @"panelMinimumWidth"
 
 NSArray<NSDictionary *> *BCXPanelItemsForKey(NSString *key);
+NSArray<NSDictionary *> *BCXHandleItems(void);
+BOOL BCXHandleOnRight(void);
 void BCXSavePanelItemsForKey(NSString *key, NSArray<NSDictionary *> *items);
 NSArray<NSDictionary *> *BCXBuiltinActions(void);
 NSArray<NSDictionary *> *BCXShortcuts(void);

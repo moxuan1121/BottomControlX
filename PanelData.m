@@ -40,6 +40,7 @@ void BCXCacheQuickActions(NSString *bundleID, NSArray *actions) {
 NSArray<NSDictionary *> *BCXPanelItemsForKey(NSString *key) {
     NSDictionary *prefs = BCXPreferences();
     id items = prefs[key];
+    if (!items && [key isEqualToString:BCX_LEFT_ITEMS]) items = prefs[BCX_RIGHT_ITEMS];
     if (![items isKindOfClass:NSArray.class]) return @[];
     NSMutableArray *valid = [NSMutableArray array];
     for (id item in items) {
@@ -72,6 +73,16 @@ void BCXSetIconSize(CGFloat size) {
         [[NSFileManager defaultManager] removeItemAtPath:LEGACY_PREF_PATH error:nil];
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR(Notify_Preferences), NULL, NULL, YES);
     }
+}
+
+NSArray<NSDictionary *> *BCXHandleItems(void) {
+    return BCXPanelItemsForKey(BCX_LEFT_ITEMS);
+}
+
+BOOL BCXHandleOnRight(void) {
+    NSDictionary *prefs = BCXPreferences();
+    if (prefs[BCX_HANDLE_SIDE]) return [prefs[BCX_HANDLE_SIDE] isEqualToString:@"right"];
+    return !prefs[BCX_LEFT_ITEMS] && [prefs[BCX_RIGHT_ITEMS] isKindOfClass:NSArray.class];
 }
 
 CGFloat BCXHandleHeight(void) {
@@ -304,6 +315,24 @@ static NSArray *BCXApplicationQuickActions(NSString *bundleID) {
     } @catch (NSException *exception) { return @[]; }
 }
 
+static NSString *BCXLocalizedQuickActionTitle(NSString *bundleID, NSString *type, NSString *fallback) {
+    Class proxyClass = NSClassFromString(@"LSApplicationProxy");
+    SEL proxySelector = @selector(applicationProxyForIdentifier:);
+    if (![proxyClass respondsToSelector:proxySelector]) return fallback;
+    id proxy = ((id (*)(id, SEL, id))objc_msgSend)(proxyClass, proxySelector, bundleID);
+    NSURL *url = [proxy respondsToSelector:@selector(bundleURL)]
+        ? ((id (*)(id, SEL))objc_msgSend)(proxy, @selector(bundleURL)) : nil;
+    NSBundle *bundle = url ? [NSBundle bundleWithURL:url] : nil;
+    for (NSDictionary *entry in bundle.infoDictionary[@"UIApplicationShortcutItems"]) {
+        if (![entry[@"UIApplicationShortcutItemType"] isEqualToString:type]) continue;
+        NSString *key = entry[@"UIApplicationShortcutItemTitle"];
+        if (![key isKindOfClass:NSString.class] || !key.length) break;
+        NSString *title = [bundle localizedStringForKey:key value:key table:@"InfoPlist"];
+        return title.length ? title : fallback;
+    }
+    return fallback;
+}
+
 static NSArray *BCXRawQuickActions(NSString *bundleID, id iconView) {
     NSMutableArray *actions = [NSMutableArray array];
     NSMutableSet *seen = [NSMutableSet set];
@@ -333,6 +362,7 @@ static NSArray<NSDictionary *> *BCXQuickActionDictionaries(NSArray *actions, NSS
                 ? ((id (*)(id, SEL))objc_msgSend)(action, @selector(type)) : nil;
             NSString *title = [action respondsToSelector:@selector(localizedTitle)]
                 ? ((id (*)(id, SEL))objc_msgSend)(action, @selector(localizedTitle)) : nil;
+            if (type.length) title = BCXLocalizedQuickActionTitle(bundleID, type, title);
             if (type.length && title.length && ![seen containsObject:type]) {
                 [seen addObject:type];
                 NSMutableDictionary *entry = [@{@"kind":@"quick", @"id":type, @"app":bundleID, @"title":title} mutableCopy];

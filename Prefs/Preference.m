@@ -57,7 +57,7 @@
 
 - (NSArray *)specifiers {
     if (_specifiers) return _specifiers;
-    self.title = @"ShortcutPanel";
+    self.title = @"侧边捷径";
     NSMutableArray *items = [NSMutableArray array];
     PSSpecifier *item = [PSSpecifier preferenceSpecifierNamed:@"启用插件" target:self
         set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
@@ -67,15 +67,13 @@
     [items addObject:item];
 
     [items addObject:[self groupNamed:@"侧边手柄"
-        footer:@"配置动作后显示对应的圆角手柄。按住手柄向屏幕内拖动呼出面板，往回拖可取消。"]];
-    for (NSDictionary *zone in @[@{@"title":@"左侧手柄动作", @"key":BCX_LEFT_ITEMS},
-                                  @{@"title":@"右侧手柄动作", @"key":BCX_RIGHT_ITEMS}]) {
-        PSSpecifier *link = [PSSpecifier preferenceSpecifierNamed:zone[@"title"] target:self set:Nil get:Nil
-            detail:BCXPanelSettingsController.class cell:PSLinkCell edit:Nil];
-        [link setProperty:zone[@"key"] forKey:@"zoneKey"];
-        [link setProperty:zone[@"key"] forKey:@"id"];
-        [items addObject:link];
-    }
+        footer:@"选择显示的一侧，按住手柄向屏幕内拖动呼出面板，往回拖可取消。"]];
+    [items addObject:[self buttonNamed:BCXHandleOnRight() ? @"手柄位置：右侧" : @"手柄位置：左侧" action:@selector(chooseHandleSide)]];
+    PSSpecifier *link = [PSSpecifier preferenceSpecifierNamed:@"手柄动作" target:self set:Nil get:Nil
+        detail:BCXPanelSettingsController.class cell:PSLinkCell edit:Nil];
+    [link setProperty:BCX_LEFT_ITEMS forKey:@"zoneKey"];
+    [link setProperty:BCX_LEFT_ITEMS forKey:@"id"];
+    [items addObject:link];
     [items addObject:[PSSpecifier preferenceSpecifierNamed:@"手柄外观" target:self set:Nil get:Nil
         detail:BCXHandleAppearanceController.class cell:PSLinkCell edit:Nil]];
 
@@ -128,13 +126,25 @@
     posix_spawn(&pid, path, NULL, NULL, args, environ);
 }
 
+- (void)chooseHandleSide {
+    UIAlertController *menu = [UIAlertController alertControllerWithTitle:@"手柄显示位置" message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+    for (NSString *side in @[@"left", @"right"]) {
+        NSString *title = [side isEqualToString:@"left"] ? @"左侧" : @"右侧";
+        [menu addAction:[UIAlertAction actionWithTitle:title style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            PSSpecifier *specifier = [PSSpecifier preferenceSpecifierNamed:nil target:self set:Nil get:Nil detail:Nil cell:PSStaticTextCell edit:Nil];
+            [specifier setProperty:BCX_HANDLE_SIDE forKey:@"key"];
+            [self setPreferenceValue:side specifier:specifier];
+            [self reloadSpecifiers];
+        }]];
+    }
+    [menu addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:menu animated:YES completion:nil];
+}
+
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
-    UIImage *icon = [UIImage imageNamed:@"Icon" inBundle:[NSBundle bundleForClass:self.class]];
-    UIImageView *view = [[UIImageView alloc] initWithImage:icon];
-    view.contentMode = UIViewContentModeScaleAspectFit;
-    view.frame = CGRectMake(0, 0, 28, 28);
-    self.navigationItem.titleView = view;
+    self.navigationItem.titleView = nil;
+    self.title = @"侧边捷径";
 }
 
 @end

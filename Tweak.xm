@@ -142,6 +142,14 @@ static void BCXRebootUserspace(void) {
 
 static BOOL BCXOpenApplication(NSString *bundleID) {
     if (!bundleID.length) return NO;
+    id springBoard = UIApplication.sharedApplication;
+    SEL launch = @selector(launchApplicationWithIdentifier:suspended:);
+    if ([springBoard respondsToSelector:launch]) {
+        @try {
+            BCXSkipNextBreadcrumb();
+            if (((BOOL (*)(id, SEL, id, BOOL))objc_msgSend)(springBoard, launch, bundleID, NO)) return YES;
+        } @catch (NSException *exception) { }
+    }
     dlopen("/System/Library/Frameworks/CoreServices.framework/CoreServices", RTLD_LAZY);
     dlopen("/System/Library/Frameworks/MobileCoreServices.framework/MobileCoreServices", RTLD_LAZY);
     Class workspaceClass = NSClassFromString(@"LSApplicationWorkspace");
@@ -157,6 +165,11 @@ static BOOL BCXOpenApplication(NSString *bundleID) {
 }
 
 static void BCXClearAllBackgroundApps(void) {
+    // Leave the foreground scene before deleting its layout; otherwise iOS recreates a blank card.
+    id springBoard = UIApplication.sharedApplication;
+    SEL home = @selector(_simulateHomeButtonPress);
+    if ([springBoard respondsToSelector:home]) ((void (*)(id, SEL))objc_msgSend)(springBoard, home);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.45 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     BCXCloseBackgroundApps(YES);
     Class switcherClass = NSClassFromString(@"SBMainSwitcherViewController");
     id switcher = [switcherClass respondsToSelector:@selector(sharedInstance)]
@@ -176,6 +189,7 @@ static void BCXClearAllBackgroundApps(void) {
                 ((void (*)(id, SEL, id))objc_msgSend)(switcher, remove, bundleID);
         } @catch (NSException *exception) { }
     }
+    });
 }
 
 static id BCXIconViewForBundleID(NSString *bundleID, BOOL menuProbe) {
