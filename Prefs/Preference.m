@@ -69,7 +69,7 @@
     [items addObject:[self groupNamed:@"侧边手柄"
         footer:@"选择显示的一侧，按住手柄向屏幕内拖动呼出面板，往回拖可取消。"]];
     [items addObject:[PSSpecifier preferenceSpecifierNamed:@"手柄位置" target:self set:Nil get:Nil
-        detail:Nil cell:PSStaticTextCell edit:Nil]];
+        detail:Nil cell:PSButtonCell edit:Nil]];
     PSSpecifier *link = [PSSpecifier preferenceSpecifierNamed:@"手柄动作" target:self set:Nil get:Nil
         detail:BCXPanelSettingsController.class cell:PSLinkCell edit:Nil];
     [link setProperty:BCX_LEFT_ITEMS forKey:@"zoneKey"];
@@ -130,8 +130,12 @@
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)path {
     UITableViewCell *cell = [super tableView:tableView cellForRowAtIndexPath:path];
     if ([cell.textLabel.text isEqualToString:@"手柄位置"]) {
+        cell.userInteractionEnabled = YES;
+        cell.contentView.userInteractionEnabled = YES;
+        cell.textLabel.textColor = UIColor.blackColor;
         UISegmentedControl *side = [[UISegmentedControl alloc] initWithItems:@[@"左", @"右"]];
         side.frame = CGRectMake(0, 0, 120, 34);
+        side.userInteractionEnabled = YES;
         side.selectedSegmentIndex = BCXHandleOnRight() ? 1 : 0;
         [side addTarget:self action:@selector(handleSideChanged:) forControlEvents:UIControlEventValueChanged];
         cell.accessoryView = side;
@@ -144,6 +148,7 @@
     PSSpecifier *specifier = [PSSpecifier preferenceSpecifierNamed:nil target:self set:Nil get:Nil detail:Nil cell:PSStaticTextCell edit:Nil];
     [specifier setProperty:BCX_HANDLE_SIDE forKey:@"key"];
     [self setPreferenceValue:control.selectedSegmentIndex == 1 ? @"right" : @"left" specifier:specifier];
+    control.selectedSegmentIndex = BCXHandleOnRight() ? 1 : 0;
 }
 
 - (void)viewWillAppear:(BOOL)animated {

@@ -61,8 +61,10 @@ assert '@"手柄外观"' in prefs and "BCXHandleAppearanceController" in prefs
 assert "BCXPickerModeOpenApps" in panel_settings and 'BCXOpenApplication(identifier)' in tweak
 assert '[@"kind"] isEqualToString:@"app"' in data
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: 侧边捷径" in control and "Version: 1.0.1+panel38" in control
-assert 'BCXScaledSettingsIcon(itemIcon)' in panel_settings
+assert "Name: 侧边捷径" in control and "Version: 1.0.1+panel39" in control
+assert 'BCXScaledSettingsIcon(BCXApplicationIcon(item[@"id"]))' in panel_settings
+assert 'cell.textLabel.textColor = UIColor.blackColor' in prefs
+assert 'cell.userInteractionEnabled = YES' in prefs and 'cell:PSButtonCell' in prefs
 assert '@"copyshot"' in data and 'BCXCopyScreenshot()' in tweak
 assert '_UICreateScreenUIImage' in tweak and 'UIPasteboard.generalPasteboard.image = image' in tweak
 assert 'localizedStringForKey:key value:key table:@"InfoPlist"' in data

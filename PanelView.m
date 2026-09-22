@@ -239,10 +239,10 @@ void BCXConfigureSideHandles(BOOL enabled, void (^runAction)(NSDictionary *item)
     }
     (void)handleWindow.rootViewController.view;
     BCXHandleController *controller = (BCXHandleController *)handleWindow.rootViewController;
+    handleWindow.hidden = NO;
     [controller.view setNeedsLayout];
     [controller.view layoutIfNeeded];
     [controller reloadHandles];
-    handleWindow.hidden = NO;
 }
 
 BOOL BCXBeginSidePanel(NSArray<NSDictionary *> *items, BOOL fromLeft, void (^runAction)(NSDictionary *item)) {
