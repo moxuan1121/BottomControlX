@@ -146,7 +146,11 @@ static id BCXIconViewForBundleID(NSString *bundleID) {
     if (![controllerClass respondsToSelector:@selector(sharedInstance)]) return nil;
     @try {
         id controller = [controllerClass sharedInstance];
+        id manager = [controller respondsToSelector:@selector(iconManager)]
+            ? ((id (*)(id, SEL))objc_msgSend)(controller, @selector(iconManager)) : nil;
         id model = [controller respondsToSelector:@selector(model)] ? [controller model] : nil;
+        if (!model && [manager respondsToSelector:@selector(iconModel)])
+            model = ((id (*)(id, SEL))objc_msgSend)(manager, @selector(iconModel));
         SEL iconSelector = @selector(applicationIconForBundleIdentifier:);
         id icon = [model respondsToSelector:iconSelector]
             ? ((id (*)(id, SEL, id))objc_msgSend)(model, iconSelector, bundleID) : nil;
@@ -156,6 +160,8 @@ static id BCXIconViewForBundleID(NSString *bundleID) {
         SEL viewSelector = @selector(iconViewForIcon:);
         id view = icon && [map respondsToSelector:viewSelector]
             ? ((id (*)(id, SEL, id))objc_msgSend)(map, viewSelector, icon) : nil;
+        if (!view && icon && [manager respondsToSelector:@selector(firstIconViewForIcon:)])
+            view = ((id (*)(id, SEL, id))objc_msgSend)(manager, @selector(firstIconViewForIcon:), icon);
         if (view || !icon) return view;
         Class viewClass = NSClassFromString(@"SBIconView");
         SEL initializer = @selector(initWithConfigurationOptions:);
@@ -163,6 +169,8 @@ static id BCXIconViewForBundleID(NSString *bundleID) {
             ? ((id (*)(id, SEL, NSUInteger))objc_msgSend)([viewClass alloc], initializer, 0) : [viewClass new];
         if ([view respondsToSelector:@selector(setIcon:)])
             ((void (*)(id, SEL, id))objc_msgSend)(view, @selector(setIcon:), icon);
+        if (manager && [view respondsToSelector:@selector(setDelegate:)])
+            ((void (*)(id, SEL, id))objc_msgSend)(view, @selector(setDelegate:), manager);
         return view;
     } @catch (NSException *exception) {
         return nil;
