@@ -178,7 +178,11 @@ NSArray<NSDictionary *> *BCXShortcuts(void) {
     if (!db) return @[];
     sqlite3_stmt *stmt = NULL;
     NSMutableArray *items = [NSMutableArray array];
-    if (sqlite3_prepare_v2(db, "SELECT ZWORKFLOWID, ZNAME FROM ZSHORTCUT WHERE ZNAME IS NOT NULL ORDER BY ZNAME COLLATE NOCASE", -1, &stmt, NULL) == SQLITE_OK) {
+    const char *query = "SELECT s.ZWORKFLOWID, s.ZNAME FROM ZSHORTCUT s "
+        "WHERE s.ZNAME IS NOT NULL AND NOT EXISTS "
+        "(SELECT 1 FROM ZTRIGGER t WHERE t.ZSHORTCUT = s.Z_PK) "
+        "ORDER BY s.ZNAME COLLATE NOCASE";
+    if (sqlite3_prepare_v2(db, query, -1, &stmt, NULL) == SQLITE_OK) {
         while (sqlite3_step(stmt) == SQLITE_ROW) {
             const char *identifier = (const char *)sqlite3_column_text(stmt, 0);
             const char *name = (const char *)sqlite3_column_text(stmt, 1);

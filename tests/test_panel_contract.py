@@ -88,10 +88,12 @@ assert 'tableView:(UITableView *)tableView willDisplayCell:' not in prefs
 assert "customSymbol" in data and "customImage" in data
 
 db = sqlite3.connect(":memory:")
-db.execute("CREATE TABLE ZSHORTCUT (ZWORKFLOWID TEXT, ZNAME TEXT)")
-db.execute("INSERT INTO ZSHORTCUT VALUES (?, ?)", ("stable-id", "测试指令"))
-query = re.search(r'"(SELECT ZWORKFLOWID, ZNAME FROM ZSHORTCUT[^\"]+)"', data).group(1)
-assert db.execute(query).fetchall() == [("stable-id", "测试指令")]
+db.execute("CREATE TABLE ZSHORTCUT (Z_PK INTEGER, ZWORKFLOWID TEXT, ZNAME TEXT)")
+db.execute("CREATE TABLE ZTRIGGER (ZSHORTCUT INTEGER)")
+db.execute("INSERT INTO ZSHORTCUT VALUES (1, 'stable-id', '测试指令'), (2, 'automation-id', '自动化')")
+db.execute("INSERT INTO ZTRIGGER VALUES (2)")
+assert 't.ZSHORTCUT = s.Z_PK' in data
+assert db.execute("SELECT s.ZWORKFLOWID, s.ZNAME FROM ZSHORTCUT s WHERE s.ZNAME IS NOT NULL AND NOT EXISTS (SELECT 1 FROM ZTRIGGER t WHERE t.ZSHORTCUT = s.Z_PK) ORDER BY s.ZNAME COLLATE NOCASE").fetchall() == [("stable-id", "测试指令")]
 
 for action in ("closeapps", "closeandrespring", "respring", "userspace", "reboot", "shutdown"):
     assert f'@"{action}"' in data and f'@"{action}"' in tweak
