@@ -400,7 +400,7 @@ static NSString *BCXBundleIDForIconView(id iconView) {
     %orig;
     // Other tweaks may replace the setter argument inside %orig; read the stored result.
     SEL getter = @selector(applicationShortcutItems);
-    NSArray *stored = [self respondsToSelector:getter]
+    NSArray *stored = [(id)self respondsToSelector:getter]
         ? ((id (*)(id, SEL))objc_msgSend)(self, getter) : items;
     BCXCacheQuickActions(BCXBundleIDForIconView(self), stored);
 }
