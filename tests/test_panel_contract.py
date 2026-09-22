@@ -43,7 +43,8 @@ for removed in ("SBFluidSwitcherGestureManager", "SBFluidSwitcherGestureExclusio
 assert "WFSpringBoardWorkflowRunnerClient" in tweak
 assert "initWithWorkflowIdentifier:" in tweak and "shortcuts://run-shortcut" not in tweak
 assert 'BCXRebootUserspace()' in tweak and '@"userspace"' in tweak
-assert '"/bin/launchctl"' in tweak and '(char *)"reboot", (char *)"userspace"' in tweak
+assert 'jbroot(@"/usr/bin/launchctl")' in tweak and 'jbroot(@"/basebin/jbctl")' in tweak
+assert 'waitpid(pid, &status, 0)' in tweak and 'WEXITSTATUS(status)' in tweak
 assert 'jbdRebootUserspace' not in tweak
 assert 'ShortcutPanelHelper' not in tweak and 'TOOL_NAME' not in makefile
 assert not (root / "Helper.m").exists() and not (root / "HelperEntitlements.plist").exists()
@@ -58,7 +59,7 @@ assert '@"手柄外观"' in prefs and "BCXHandleAppearanceController" in prefs
 assert "BCXPickerModeOpenApps" in panel_settings and 'BCXOpenApplication(identifier)' in tweak
 assert '[@"kind"] isEqualToString:@"app"' in data
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel32" in control
+assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel33" in control
 assert 'BCXSliderCell.class' in prefs and 'cell:PSStaticTextCell' in prefs
 assert 'performGetter' in slider_cell and 'performSetterWithValue:' in slider_cell
 assert 'setProperty:@"BCXSliderCell"' not in prefs

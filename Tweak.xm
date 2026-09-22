@@ -5,6 +5,8 @@
 #import <spawn.h>
 #import <signal.h>
 #import <unistd.h>
+#import <sys/wait.h>
+#import <errno.h>
 #import <dlfcn.h>
 #import <objc/runtime.h>
 
@@ -67,13 +69,52 @@ static BOOL BCXSpawn(NSString *program, NSString *argument) {
     return posix_spawn(&pid, path, NULL, NULL, argv, environ) == 0;
 }
 
-static NSInteger BCXRebootUserspace(void) {
-    const char *path = "/bin/launchctl";
-    if (access(path, X_OK) != 0) return ENOENT;
-    pid_t pid = 0;
-    char *argv[] = {(char *)path, (char *)"reboot", (char *)"userspace", NULL};
-    extern char **environ;
-    return posix_spawn(&pid, path, NULL, NULL, argv, environ);
+static void BCXRebootUserspace(void) {
+    static BOOL running = NO;
+    if (running) return;
+    running = YES;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        // Dopamine roothide's own UI uses jbctl, which carries the reboot entitlement.
+        NSArray *paths = @[jbroot(@"/basebin/jbctl"), jbroot(@"/usr/bin/launchctl"),
+            jbroot(@"/bin/launchctl"), @"/usr/bin/launchctl", @"/bin/launchctl"];
+        NSMutableArray *failures = [NSMutableArray array];
+        for (NSString *program in [NSOrderedSet orderedSetWithArray:paths]) {
+            const char *path = program.fileSystemRepresentation;
+            if (access(path, X_OK) != 0) {
+                int error = errno;
+                [failures addObject:[NSString stringWithFormat:@"%@：路径检查 %d", program, error]];
+                continue;
+            }
+            BOOL jbctl = [program.lastPathComponent isEqualToString:@"jbctl"];
+            char *argv[] = {(char *)path, (char *)(jbctl ? "reboot_userspace" : "reboot"),
+                jbctl ? NULL : (char *)"userspace", NULL};
+            pid_t pid = 0;
+            extern char **environ;
+            int error = posix_spawn(&pid, path, NULL, NULL, argv, environ);
+            if (error) {
+                [failures addObject:[NSString stringWithFormat:@"%@：启动 %d", program, error]];
+                continue;
+            }
+            int status = 0;
+            pid_t waited;
+            do { waited = waitpid(pid, &status, 0); } while (waited < 0 && errno == EINTR);
+            if (waited < 0) {
+                [failures addObject:[NSString stringWithFormat:@"%@：读取结果 %d", program, errno]];
+                break; // The child may already have requested a reboot; do not issue another.
+            }
+            if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+                dispatch_async(dispatch_get_main_queue(), ^{ running = NO; });
+                return;
+            }
+            [failures addObject:[NSString stringWithFormat:@"%@：%@ %d", program,
+                WIFEXITED(status) ? @"退出码" : @"终止信号",
+                WIFEXITED(status) ? WEXITSTATUS(status) : WTERMSIG(status)]];
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            running = NO;
+            BCXAlert([@"用户空间重启失败。\n" stringByAppendingString:[failures componentsJoinedByString:@"\n"]]);
+        });
+    });
 }
 
 static BOOL BCXOpenApplication(NSString *bundleID) {
@@ -298,8 +339,7 @@ static void BCXRunPanelItem(NSDictionary *item) {
         BCXCloseBackgroundApps();
         kill(getpid(), SIGTERM);
     } else if ([identifier isEqualToString:@"userspace"]) {
-        NSInteger result = BCXRebootUserspace();
-        if (result != 0) BCXAlert([NSString stringWithFormat:@"用户空间重启失败（错误 %ld）。", (long)result]);
+        BCXRebootUserspace();
     } else if ([identifier isEqualToString:@"reboot"]) {
         if (!BCXPowerAction(YES)) BCXAlert(@"无法重启手机。");
     } else if ([identifier isEqualToString:@"shutdown"]) {
