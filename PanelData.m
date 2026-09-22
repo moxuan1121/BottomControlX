@@ -20,7 +20,21 @@ static NSMutableDictionary<NSString *, NSArray *> *BCXQuickActionCache(void) {
 
 void BCXCacheQuickActions(NSString *bundleID, NSArray *actions) {
     if (!bundleID.length || ![actions isKindOfClass:NSArray.class] || !actions.count) return;
-    BCXQuickActionCache()[bundleID] = [actions copy];
+    // A later application-only fetch must not erase items captured from the full icon menu.
+    NSMutableDictionary *merged = [NSMutableDictionary dictionary];
+    NSMutableArray *order = [NSMutableArray array];
+    for (NSArray *source in @[BCXQuickActionCache()[bundleID] ?: @[], actions]) {
+        for (id item in source) {
+            if (![item respondsToSelector:@selector(type)]) continue;
+            NSString *type = ((id (*)(id, SEL))objc_msgSend)(item, @selector(type));
+            if (![type isKindOfClass:NSString.class] || !type.length) continue;
+            if (!merged[type]) [order addObject:type];
+            merged[type] = item;
+        }
+    }
+    NSMutableArray *result = [NSMutableArray array];
+    for (NSString *type in order) [result addObject:merged[type]];
+    BCXQuickActionCache()[bundleID] = result;
 }
 
 NSArray<NSDictionary *> *BCXPanelItemsForKey(NSString *key) {
@@ -252,13 +266,11 @@ static NSArray *BCXIconQuickActions(id iconView) {
 
 static NSArray *BCXStaticQuickActions(NSString *bundleID) {
     dlopen("/System/Library/Frameworks/MobileCoreServices.framework/MobileCoreServices", RTLD_LAZY);
-    Class workspaceClass = NSClassFromString(@"LSApplicationWorkspace");
-    id workspace = [workspaceClass respondsToSelector:@selector(defaultWorkspace)]
-        ? ((id (*)(id, SEL))objc_msgSend)(workspaceClass, @selector(defaultWorkspace)) : nil;
+    Class proxyClass = NSClassFromString(@"LSApplicationProxy");
     SEL proxySelector = @selector(applicationProxyForIdentifier:);
-    if (![workspace respondsToSelector:proxySelector]) return @[];
+    if (![proxyClass respondsToSelector:proxySelector]) return @[];
     @try {
-        id proxy = ((id (*)(id, SEL, id))objc_msgSend)(workspace, proxySelector, bundleID);
+        id proxy = ((id (*)(id, SEL, id))objc_msgSend)(proxyClass, proxySelector, bundleID);
         SEL urlSelector = @selector(bundleURL);
         NSURL *url = [proxy respondsToSelector:urlSelector]
             ? ((id (*)(id, SEL))objc_msgSend)(proxy, urlSelector) : nil;
@@ -356,6 +368,23 @@ NSArray<NSDictionary *> *BCXQuickActionsForIconView(NSString *bundleID, id iconV
 }
 
 void BCXFetchQuickActions(NSString *bundleID, id iconView, void (^completion)(NSArray<NSDictionary *> *items)) {
+    // AppData and HomeScreenQuickActions build extra menu items in this setter.
+    // The caller supplies a detached probe view, so the visible Home Screen is not changed.
+    @try {
+        SEL setter = @selector(setApplicationShortcutItems:);
+        if ([iconView respondsToSelector:setter]) {
+            NSMutableArray *proposed = [NSMutableArray arrayWithArray:BCXApplicationQuickActions(bundleID)];
+            [proposed addObjectsFromArray:BCXServiceQuickActions(bundleID)];
+            [proposed addObjectsFromArray:BCXStaticQuickActions(bundleID)];
+            id delegate = [iconView respondsToSelector:@selector(shortcutsDelegate)]
+                ? ((id (*)(id, SEL))objc_msgSend)(iconView, @selector(shortcutsDelegate)) : nil;
+            SEL compose = @selector(iconView:applicationShortcutItemsWithProposedItems:);
+            NSArray *composed = [delegate respondsToSelector:compose]
+                ? BCXArrayFromFetchResult(((id (*)(id, SEL, id, id))objc_msgSend)(delegate, compose, iconView, proposed)) : proposed;
+            ((void (*)(id, SEL, id))objc_msgSend)(iconView, setter, composed);
+            BCXCacheQuickActions(bundleID, BCXIconQuickActions(iconView));
+        }
+    } @catch (NSException *exception) { }
     id service = BCXShortcutService();
     SEL fetch = @selector(fetchApplicationShortcutItemsOfTypes:forBundleIdentifier:withCompletionHandler:);
     if (![service respondsToSelector:fetch]) {

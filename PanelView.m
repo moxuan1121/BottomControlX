@@ -254,6 +254,12 @@ BOOL BCXBeginSidePanel(NSArray<NSDictionary *> *items, BOOL fromLeft, void (^run
     panelWindow.userInteractionEnabled = NO;
     [handleWindow.rootViewController.view.layer removeAllAnimations];
     handleWindow.rootViewController.view.alpha = 1;
+    BCXHandleController *handles = (BCXHandleController *)handleWindow.rootViewController;
+    for (UIView *handle in @[handles.leftHandle, handles.rightHandle]) {
+        UIView *pill = [handle viewWithTag:10];
+        [pill.layer removeAllAnimations];
+        pill.transform = CGAffineTransformIdentity;
+    }
     return YES;
 }
 
@@ -279,13 +285,21 @@ void BCXFinishPanel(BOOL show) {
             panelWindow = nil;
             [previousKeyWindow makeKeyWindow];
             previousKeyWindow = nil;
-            UIView *handles = handleWindow.rootViewController.view;
-            handles.alpha = 0;
+            BCXHandleController *handles = (BCXHandleController *)handleWindow.rootViewController;
+            [handles reloadHandles];
+            [handles.view layoutIfNeeded];
+            for (UIView *handle in @[handles.leftHandle, handles.rightHandle]) {
+                UIView *pill = [handle viewWithTag:10];
+                CGFloat distance = handle.bounds.size.width + pill.bounds.size.width + 12;
+                pill.transform = CGAffineTransformMakeTranslation(handle.tag == 1 ? -distance : distance, 0);
+            }
             handleWindow.hidden = NO;
-            [(BCXHandleController *)handleWindow.rootViewController reloadHandles];
-            [UIView animateWithDuration:UIAccessibilityIsReduceMotionEnabled() ? 0 : 0.22
-                delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction
-                animations:^{ handles.alpha = 1; } completion:nil];
+            [UIView animateWithDuration:UIAccessibilityIsReduceMotionEnabled() ? 0 : 0.28
+                delay:0 options:UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction
+                animations:^{
+                    [handles.leftHandle viewWithTag:10].transform = CGAffineTransformIdentity;
+                    [handles.rightHandle viewWithTag:10].transform = CGAffineTransformIdentity;
+                } completion:nil];
         }
     };
     [UIView animateWithDuration:show ? 0.34 : 0.24 delay:0 usingSpringWithDamping:show ? 0.86 : 1

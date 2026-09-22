@@ -141,7 +141,7 @@ static BOOL BCXOpenApplication(NSString *bundleID) {
         ((BOOL (*)(id, SEL, id))objc_msgSend)(workspace, open, bundleID);
 }
 
-static id BCXIconViewForBundleID(NSString *bundleID) {
+static id BCXIconViewForBundleID(NSString *bundleID, BOOL menuProbe) {
     Class controllerClass = NSClassFromString(@"SBIconController");
     if (![controllerClass respondsToSelector:@selector(sharedInstance)]) return nil;
     @try {
@@ -162,7 +162,8 @@ static id BCXIconViewForBundleID(NSString *bundleID) {
             ? ((id (*)(id, SEL, id))objc_msgSend)(map, viewSelector, icon) : nil;
         if (!view && icon && [manager respondsToSelector:@selector(firstIconViewForIcon:)])
             view = ((id (*)(id, SEL, id))objc_msgSend)(manager, @selector(firstIconViewForIcon:), icon);
-        if (view || !icon) return view;
+        if (!menuProbe && view) return view;
+        if (!icon) return nil;
         Class viewClass = NSClassFromString(@"SBIconView");
         SEL initializer = @selector(initWithConfigurationOptions:);
         view = [viewClass instancesRespondToSelector:initializer]
@@ -197,7 +198,7 @@ static void BCXFetchAllQuickActions(void (^completion)(NSArray<NSDictionary *> *
     };
     for (NSDictionary *app in apps) {
         NSString *bundleID = app[@"id"];
-        id iconView = BCXIconViewForBundleID(bundleID);
+        id iconView = BCXIconViewForBundleID(bundleID, YES);
         resultsByApp[bundleID] = BCXQuickActionsForIconView(bundleID, iconView);
         dispatch_group_enter(group);
         BCXFetchQuickActions(bundleID, iconView, ^(NSArray<NSDictionary *> *actions) {
@@ -222,7 +223,7 @@ static void BCXQuickRequestReceived(CFNotificationCenterRef center, void *observ
             });
             return;
         }
-        id iconView = BCXIconViewForBundleID(bundleID);
+        id iconView = BCXIconViewForBundleID(bundleID, YES);
         __block BOOL replied = NO;
         void (^reply)(NSArray *) = ^(NSArray *actions) {
             if (replied) return;
@@ -338,7 +339,7 @@ static void BCXRunPanelItem(NSDictionary *item) {
     }
     if ([kind isEqualToString:@"quick"]) {
         NSString *bundleID = item[@"app"];
-        id iconView = BCXIconViewForBundleID(bundleID);
+        id iconView = BCXIconViewForBundleID(bundleID, NO);
         id action = BCXQuickActionItem(bundleID, identifier, iconView) ?: BCXQuickActionFallback(item);
         if (!action) {
             BCXAlert(@"此应用的快捷操作已不可用，请在设置中重新选择。");
@@ -397,7 +398,11 @@ static NSString *BCXBundleIDForIconView(id iconView) {
 %hook SBIconView
 - (void)setApplicationShortcutItems:(NSArray *)items {
     %orig;
-    BCXCacheQuickActions(BCXBundleIDForIconView(self), items);
+    // Other tweaks may replace the setter argument inside %orig; read the stored result.
+    SEL getter = @selector(applicationShortcutItems);
+    NSArray *stored = [self respondsToSelector:getter]
+        ? ((id (*)(id, SEL))objc_msgSend)(self, getter) : items;
+    BCXCacheQuickActions(BCXBundleIDForIconView(self), stored);
 }
 - (NSArray *)effectiveApplicationShortcutItems {
     NSArray *items = %orig;

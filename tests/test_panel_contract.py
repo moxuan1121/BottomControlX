@@ -59,7 +59,13 @@ assert '@"手柄外观"' in prefs and "BCXHandleAppearanceController" in prefs
 assert "BCXPickerModeOpenApps" in panel_settings and 'BCXOpenApplication(identifier)' in tweak
 assert '[@"kind"] isEqualToString:@"app"' in data
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel34" in control
+assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel35" in control
+assert 'BCXIconViewForBundleID(bundleID, YES)' in tweak
+assert 'BCXIconViewForBundleID(bundleID, NO)' in tweak
+assert 'BCXCacheQuickActions(BCXBundleIDForIconView(self), stored)' in tweak
+assert 'iconView:applicationShortcutItemsWithProposedItems:' in data
+assert 'objc_msgSend)(proxyClass, proxySelector, bundleID)' in data
+assert 'CGAffineTransformMakeTranslation(handle.tag == 1 ? -distance : distance, 0)' in panel
 assert 'BCXConfirm(@"重启手机"' in tweak and 'BCXConfirm(@"重启用户空间"' in tweak
 assert 'detail:BCXPanelSettingsController.class cell:PSLinkCell' in prefs
 assert 'BCXPanelSettingsController : PSViewController' in panel_settings
