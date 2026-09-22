@@ -7,7 +7,6 @@
 #import <unistd.h>
 #import <dlfcn.h>
 #import <objc/runtime.h>
-#import <stdint.h>
 
 static BOOL enable;
 static void BCXRunPanelItem(NSDictionary *item);
@@ -69,14 +68,25 @@ static BOOL BCXSpawn(NSString *program, NSString *argument) {
 }
 
 static NSInteger BCXRebootUserspace(void) {
-    typedef int64_t (*BCXJBDRebootUserspace)(void);
-    void *library = dlopen(jbroot("/basebin/libjailbreak.dylib"), RTLD_NOW | RTLD_LOCAL);
-    if (!library) return -10;
-    BCXJBDRebootUserspace rebootUserspace = (BCXJBDRebootUserspace)dlsym(library, "jbdRebootUserspace");
-    if (!rebootUserspace) { dlclose(library); return -11; }
-    int64_t result = rebootUserspace();
-    dlclose(library);
-    return (NSInteger)result;
+    const char *path = "/bin/launchctl";
+    if (access(path, X_OK) != 0) return ENOENT;
+    pid_t pid = 0;
+    char *argv[] = {(char *)path, "reboot", "userspace", NULL};
+    extern char **environ;
+    return posix_spawn(&pid, path, NULL, NULL, argv, environ);
+}
+
+static BOOL BCXOpenApplication(NSString *bundleID) {
+    if (!bundleID.length) return NO;
+    dlopen("/System/Library/Frameworks/CoreServices.framework/CoreServices", RTLD_LAZY);
+    dlopen("/System/Library/Frameworks/MobileCoreServices.framework/MobileCoreServices", RTLD_LAZY);
+    Class workspaceClass = NSClassFromString(@"LSApplicationWorkspace");
+    SEL shared = @selector(defaultWorkspace);
+    SEL open = @selector(openApplicationWithBundleID:);
+    if (![workspaceClass respondsToSelector:shared]) return NO;
+    id workspace = ((id (*)(id, SEL))objc_msgSend)(workspaceClass, shared);
+    return [workspace respondsToSelector:open] &&
+        ((BOOL (*)(id, SEL, id))objc_msgSend)(workspace, open, bundleID);
 }
 
 static id BCXIconViewForBundleID(NSString *bundleID) {
@@ -271,6 +281,10 @@ static void BCXRunPanelItem(NSDictionary *item) {
         if (!BCXActivateQuickAction(action, bundleID, iconView)) {
             BCXAlert(@"无法打开此应用的快捷操作。");
         }
+        return;
+    }
+    if ([kind isEqualToString:@"app"]) {
+        if (!BCXOpenApplication(identifier)) BCXAlert(@"无法打开此应用。");
         return;
     }
     if (![kind isEqualToString:@"builtin"]) return;

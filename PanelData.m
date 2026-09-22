@@ -112,6 +112,7 @@ NSString *BCXSymbol(NSDictionary *item) {
     NSString *kind = item[@"kind"];
     if ([kind isEqualToString:@"shortcut"]) return @"square.stack.3d.up";
     if ([kind isEqualToString:@"quick"]) return @"app.badge";
+    if ([kind isEqualToString:@"app"]) return @"app";
     return [item[@"symbol"] isKindOfClass:NSString.class] ? item[@"symbol"] : @"square.grid.2x2";
 }
 
@@ -119,6 +120,7 @@ UIImage *BCXItemImage(NSDictionary *item, CGFloat size) {
     NSData *data = item[@"customImage"];
     UIImage *image = [data isKindOfClass:NSData.class] ? [UIImage imageWithData:data] : nil;
     if (image) return image;
+    if ([item[@"kind"] isEqualToString:@"app"]) return BCXApplicationIcon(item[@"id"]);
     return [UIImage systemImageNamed:BCXSymbol(item)
         withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:size weight:UIImageSymbolWeightRegular]];
 }

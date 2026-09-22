@@ -16,6 +16,13 @@
 @end
 
 @interface BottomControlXController : PSListController
+- (PSSpecifier *)sliderForKey:(NSString *)key defaultValue:(CGFloat)defaultValue minimum:(CGFloat)minimum maximum:(CGFloat)maximum;
+- (PSSpecifier *)groupNamed:(NSString *)name footer:(NSString *)footer;
+- (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier;
+- (id)readPreferenceValue:(PSSpecifier *)specifier;
+@end
+
+@interface BCXHandleAppearanceController : BottomControlXController
 @end
 
 @implementation BottomControlXController
@@ -64,18 +71,8 @@
         footer:@"配置动作后显示对应的圆角手柄。按住手柄向屏幕内拖动呼出面板，往回拖可取消。"]];
     [items addObject:[self buttonNamed:@"左侧手柄动作" action:@selector(openLeftSettings)]];
     [items addObject:[self buttonNamed:@"右侧手柄动作" action:@selector(openRightSettings)]];
-    [items addObject:[self groupNamed:@"手柄高度" footer:@"调节圆角手柄的可见高度。"]];
-    [items addObject:[self sliderForKey:BCX_HANDLE_HEIGHT defaultValue:84 minimum:48 maximum:160]];
-    [items addObject:[self groupNamed:@"垂直位置" footer:@"数值表示手柄中心在屏幕高度中的位置。"]];
-    [items addObject:[self sliderForKey:BCX_HANDLE_POSITION defaultValue:0.58 minimum:0.10 maximum:0.90]];
-    [items addObject:[self groupNamed:@"白条位置" footer:@"正数向屏幕内侧移动，负数向屏幕边缘移动。"]];
-    [items addObject:[self sliderForKey:BCX_HANDLE_INDICATOR_POSITION defaultValue:2 minimum:-6 maximum:6]];
-    [items addObject:[self groupNamed:@"阴影宽度" footer:@"调节手柄深色背景的宽度。"]];
-    [items addObject:[self sliderForKey:BCX_HANDLE_SHADOW_WIDTH defaultValue:14 minimum:8 maximum:30]];
-    [items addObject:[self groupNamed:@"阴影位置" footer:@"正数向屏幕内侧移动，负数向屏幕外侧延伸。"]];
-    [items addObject:[self sliderForKey:BCX_HANDLE_SHADOW_POSITION defaultValue:-1 minimum:-6 maximum:8]];
-    [items addObject:[self groupNamed:@"面板最小宽度" footer:@"长动作名称仍会自动拓宽面板。"]];
-    [items addObject:[self sliderForKey:BCX_PANEL_MIN_WIDTH defaultValue:104 minimum:80 maximum:220]];
+    [items addObject:[PSSpecifier preferenceSpecifierNamed:@"手柄外观" target:self set:Nil get:Nil
+        detail:BCXHandleAppearanceController.class cell:PSLinkCell edit:Nil]];
 
     [items addObject:[self groupNamed:@"维护" footer:nil]];
     [items addObject:[self buttonNamed:@"重置全部设置" action:@selector(resetSettings)]];
@@ -139,6 +136,36 @@
     view.contentMode = UIViewContentModeScaleAspectFit;
     view.frame = CGRectMake(0, 0, 28, 28);
     self.navigationItem.titleView = view;
+}
+
+@end
+
+@implementation BCXHandleAppearanceController
+
+- (NSArray *)specifiers {
+    if (_specifiers) return _specifiers;
+    self.title = @"手柄外观";
+    _specifiers = @[
+        [self groupNamed:@"手柄高度" footer:@"调节圆角手柄的可见高度。"],
+        [self sliderForKey:BCX_HANDLE_HEIGHT defaultValue:84 minimum:48 maximum:160],
+        [self groupNamed:@"垂直位置" footer:@"数值表示手柄中心在屏幕高度中的位置。"],
+        [self sliderForKey:BCX_HANDLE_POSITION defaultValue:0.58 minimum:0.10 maximum:0.90],
+        [self groupNamed:@"白条位置" footer:@"正数向屏幕内侧移动，负数向屏幕边缘移动。"],
+        [self sliderForKey:BCX_HANDLE_INDICATOR_POSITION defaultValue:2 minimum:-6 maximum:6],
+        [self groupNamed:@"阴影宽度" footer:@"调节手柄深色背景的宽度。"],
+        [self sliderForKey:BCX_HANDLE_SHADOW_WIDTH defaultValue:14 minimum:8 maximum:30],
+        [self groupNamed:@"阴影位置" footer:@"正数向屏幕内侧移动，负数向屏幕外侧延伸。"],
+        [self sliderForKey:BCX_HANDLE_SHADOW_POSITION defaultValue:-1 minimum:-6 maximum:8],
+        [self groupNamed:@"面板最小宽度" footer:@"长动作名称仍会自动拓宽面板。"],
+        [self sliderForKey:BCX_PANEL_MIN_WIDTH defaultValue:104 minimum:80 maximum:220]
+    ];
+    return _specifiers;
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    self.navigationItem.titleView = nil;
+    self.title = @"手柄外观";
 }
 
 @end

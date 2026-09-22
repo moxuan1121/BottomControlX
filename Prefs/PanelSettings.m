@@ -6,6 +6,7 @@ typedef NS_ENUM(NSInteger, BCXPickerMode) {
     BCXPickerModePanel,
     BCXPickerModeShortcuts,
     BCXPickerModeApps,
+    BCXPickerModeOpenApps,
     BCXPickerModeBuiltins
 };
 
@@ -99,7 +100,7 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
         self.navigationItem.rightBarButtonItem = self.editButtonItem;
         return;
     }
-    if (self.mode == BCXPickerModeApps || self.mode == BCXPickerModeShortcuts) {
+    if (self.mode == BCXPickerModeApps || self.mode == BCXPickerModeShortcuts || self.mode == BCXPickerModeOpenApps) {
         self.itemSearchController = [[UISearchController alloc] initWithSearchResultsController:nil];
         self.itemSearchController.searchResultsUpdater = self;
         self.itemSearchController.obscuresBackgroundDuringPresentation = NO;
@@ -116,6 +117,14 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
         switch (self.mode) {
             case BCXPickerModeShortcuts: items = BCXShortcuts(); break;
             case BCXPickerModeApps: items = BCXRequestQuickActions(@"*"); break;
+            case BCXPickerModeOpenApps: {
+                NSMutableArray *openApps = [NSMutableArray array];
+                for (NSDictionary *app in BCXInstalledApps()) [openApps addObject:@{
+                    @"kind":@"app", @"id":app[@"id"], @"title":app[@"title"]
+                }];
+                items = openApps;
+                break;
+            }
             case BCXPickerModeBuiltins: items = BCXBuiltinActions(); break;
             default: break;
         }
@@ -146,7 +155,7 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
     if (self.mode == BCXPickerModeApps) return [self itemsForAppSection:section].count;
     if (self.mode != BCXPickerModePanel) return self.visibleChoices.count;
     if (section == 0) return BCXPanelItemsForKey(self.zoneKey).count;
-    return section == 1 ? 3 : 1;
+    return section == 1 ? 4 : 1;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
@@ -171,15 +180,17 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
     cell.imageView.tintColor = UIColor.systemBlueColor;
     NSInteger smallIcon = MIN(30, MAX(18, BCXIconSize() * 0.6));
     if (self.mode == BCXPickerModePanel && path.section == 1) {
-        cell.textLabel.text = @[@"系统与越狱动作", @"快捷指令", @"应用快捷方式"][path.row];
-        cell.imageView.image = [UIImage systemImageNamed:@[@"gearshape", @"square.stack.3d.up", @"app.badge"][path.row]
+        cell.textLabel.text = @[@"系统与越狱动作", @"快捷指令", @"应用快捷方式", @"打开应用"][path.row];
+        cell.imageView.image = [UIImage systemImageNamed:@[@"gearshape", @"square.stack.3d.up", @"app.badge", @"app"][path.row]
                                            withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:smallIcon]];
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     } else if (!(self.mode == BCXPickerModePanel && path.section == 2)) {
         NSDictionary *item = self.mode == BCXPickerModePanel ? BCXPanelItemsForKey(self.zoneKey)[path.row] : [self itemAtIndexPath:path];
         cell.textLabel.text = item[@"title"];
         cell.imageView.image = self.mode == BCXPickerModeApps
-            ? BCXScaledSettingsIcon(BCXApplicationIcon(item[@"app"])) : BCXItemImage(item, smallIcon);
+            ? BCXScaledSettingsIcon(BCXApplicationIcon(item[@"app"]))
+            : self.mode == BCXPickerModeOpenApps ? BCXScaledSettingsIcon(BCXApplicationIcon(item[@"id"]))
+            : BCXItemImage(item, smallIcon);
         if (self.mode == BCXPickerModePanel) cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         if (self.mode == BCXPickerModePanel && [item[@"kind"] isEqualToString:@"quick"]) cell.detailTextLabel.text = item[@"app"];
     }
@@ -243,8 +254,8 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
         if (path.section == 0) { [self editItemAtIndex:path.row]; return; }
         if (path.section == 2) return;
         if (path.section != 1) return;
-        BCXPickerMode mode = [@[@(BCXPickerModeBuiltins), @(BCXPickerModeShortcuts), @(BCXPickerModeApps)][path.row] integerValue];
-        NSString *title = @[@"系统与越狱动作", @"快捷指令", @"应用快捷方式"][path.row];
+        BCXPickerMode mode = [@[@(BCXPickerModeBuiltins), @(BCXPickerModeShortcuts), @(BCXPickerModeApps), @(BCXPickerModeOpenApps)][path.row] integerValue];
+        NSString *title = @[@"系统与越狱动作", @"快捷指令", @"应用快捷方式", @"打开应用"][path.row];
         BCXPanelSettingsController *picker = [[BCXPanelSettingsController alloc] initWithMode:mode title:title];
         picker.zoneKey = self.zoneKey;
         [self.navigationController pushViewController:picker animated:YES];
