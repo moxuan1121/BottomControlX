@@ -145,7 +145,7 @@
 - (NSArray *)specifiers {
     if (_specifiers) return _specifiers;
     self.title = @"手柄外观";
-    _specifiers = @[
+    _specifiers = [@[
         [self groupNamed:@"手柄高度" footer:@"调节圆角手柄的可见高度。"],
         [self sliderForKey:BCX_HANDLE_HEIGHT defaultValue:84 minimum:48 maximum:160],
         [self groupNamed:@"垂直位置" footer:@"数值表示手柄中心在屏幕高度中的位置。"],
@@ -158,7 +158,7 @@
         [self sliderForKey:BCX_HANDLE_SHADOW_POSITION defaultValue:-1 minimum:-6 maximum:8],
         [self groupNamed:@"面板最小宽度" footer:@"长动作名称仍会自动拓宽面板。"],
         [self sliderForKey:BCX_PANEL_MIN_WIDTH defaultValue:104 minimum:80 maximum:220]
-    ];
+    ] mutableCopy];
     return _specifiers;
 }
 
