@@ -71,7 +71,7 @@ static NSInteger BCXRebootUserspace(void) {
     const char *path = "/bin/launchctl";
     if (access(path, X_OK) != 0) return ENOENT;
     pid_t pid = 0;
-    char *argv[] = {(char *)path, "reboot", "userspace", NULL};
+    char *argv[] = {(char *)path, (char *)"reboot", (char *)"userspace", NULL};
     extern char **environ;
     return posix_spawn(&pid, path, NULL, NULL, argv, environ);
 }

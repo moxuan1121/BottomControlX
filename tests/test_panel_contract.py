@@ -43,7 +43,7 @@ for removed in ("SBFluidSwitcherGestureManager", "SBFluidSwitcherGestureExclusio
 assert "WFSpringBoardWorkflowRunnerClient" in tweak
 assert "initWithWorkflowIdentifier:" in tweak and "shortcuts://run-shortcut" not in tweak
 assert 'BCXRebootUserspace()' in tweak and '@"userspace"' in tweak
-assert '"/bin/launchctl"' in tweak and '"reboot", "userspace"' in tweak
+assert '"/bin/launchctl"' in tweak and '(char *)"reboot", (char *)"userspace"' in tweak
 assert 'jbdRebootUserspace' not in tweak
 assert 'ShortcutPanelHelper' not in tweak and 'TOOL_NAME' not in makefile
 assert not (root / "Helper.m").exists() and not (root / "HelperEntitlements.plist").exists()
