@@ -11,7 +11,19 @@
 #import <objc/runtime.h>
 
 static BOOL enable;
+static CFAbsoluteTime suppressBreadcrumbUntil;
 static void BCXRunPanelItem(NSDictionary *item);
+static void BCXCloseBackgroundApps(void);
+
+%hook SBDeviceApplicationSceneStatusBarBreadcrumbProvider
++ (BOOL)_shouldAddBreadcrumbToActivatingSceneEntity:(id)entity sceneHandle:(id)handle withTransitionContext:(id)context {
+    return CFAbsoluteTimeGetCurrent() < suppressBreadcrumbUntil ? NO : %orig;
+}
+%end
+
+static void BCXSkipNextBreadcrumb(void) {
+    suppressBreadcrumbUntil = CFAbsoluteTimeGetCurrent() + 2.0;
+}
 
 static void settingsChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
     NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH]
@@ -137,8 +149,39 @@ static BOOL BCXOpenApplication(NSString *bundleID) {
     SEL open = @selector(openApplicationWithBundleID:);
     if (![workspaceClass respondsToSelector:shared]) return NO;
     id workspace = ((id (*)(id, SEL))objc_msgSend)(workspaceClass, shared);
-    return [workspace respondsToSelector:open] &&
-        ((BOOL (*)(id, SEL, id))objc_msgSend)(workspace, open, bundleID);
+    if (![workspace respondsToSelector:open]) return NO;
+    BCXSkipNextBreadcrumb();
+    BOOL opened = ((BOOL (*)(id, SEL, id))objc_msgSend)(workspace, open, bundleID);
+    if (!opened) suppressBreadcrumbUntil = 0;
+    return opened;
+}
+
+static void BCXClearAllBackgroundApps(void) {
+    BCXCloseBackgroundApps();
+    Class switcherClass = NSClassFromString(@"SBMainSwitcherViewController");
+    id switcher = [switcherClass respondsToSelector:@selector(sharedInstance)]
+        ? ((id (*)(id, SEL))objc_msgSend)(switcherClass, @selector(sharedInstance)) : nil;
+    SEL recent = @selector(recentAppLayouts);
+    SEL remove = @selector(_deleteAppLayoutsMatchingBundleIdentifier:);
+    if (![switcher respondsToSelector:recent] || ![switcher respondsToSelector:remove]) return;
+    id foreground = [(SpringBoard *)UIApplication.sharedApplication _accessibilityFrontMostApplication];
+    NSString *foregroundID = [foreground respondsToSelector:@selector(bundleIdentifier)]
+        ? ((id (*)(id, SEL))objc_msgSend)(foreground, @selector(bundleIdentifier)) : nil;
+    NSArray *layouts = ((id (*)(id, SEL))objc_msgSend)(switcher, recent);
+    for (id layout in [layouts copy]) {
+        @try {
+            NSArray *items = [layout respondsToSelector:@selector(allItems)]
+                ? ((id (*)(id, SEL))objc_msgSend)(layout, @selector(allItems)) : nil;
+            id first = items.firstObject;
+            NSString *bundleID = [first respondsToSelector:@selector(bundleIdentifier)]
+                ? ((id (*)(id, SEL))objc_msgSend)(first, @selector(bundleIdentifier)) : nil;
+            id app = [[NSClassFromString(@"SBApplicationController") sharedInstance] applicationWithBundleIdentifier:bundleID];
+            id state = [app respondsToSelector:@selector(processState)] ? [app processState] : nil;
+            BOOL isForeground = [state respondsToSelector:@selector(isForeground)] && [state isForeground];
+            if (bundleID.length && !isForeground && ![bundleID isEqualToString:foregroundID] && ![bundleID isEqualToString:@"com.apple.springboard"])
+                ((void (*)(id, SEL, id))objc_msgSend)(switcher, remove, bundleID);
+        } @catch (NSException *exception) { }
+    }
 }
 
 static id BCXIconViewForBundleID(NSString *bundleID, BOOL menuProbe) {
@@ -345,7 +388,9 @@ static void BCXRunPanelItem(NSDictionary *item) {
             BCXAlert(@"此应用的快捷操作已不可用，请在设置中重新选择。");
             return;
         }
+        BCXSkipNextBreadcrumb();
         if (!BCXActivateQuickAction(action, bundleID, iconView)) {
+            suppressBreadcrumbUntil = 0;
             BCXAlert(@"无法打开此应用的快捷操作。");
         }
         return;
@@ -354,12 +399,29 @@ static void BCXRunPanelItem(NSDictionary *item) {
         if (!BCXOpenApplication(identifier)) BCXAlert(@"无法打开此应用。");
         return;
     }
+    if ([kind isEqualToString:@"url"]) {
+        NSURL *url = [NSURL URLWithString:identifier];
+        if (!url.scheme.length || [@[@"file", @"javascript", @"data"] containsObject:url.scheme.lowercaseString] ||
+            ([@[@"http", @"https"] containsObject:url.scheme.lowercaseString] && !url.host.length)) {
+            BCXAlert(@"URL 无效或不受支持。");
+            return;
+        }
+        BCXSkipNextBreadcrumb();
+        [UIApplication.sharedApplication openURL:url options:@{} completionHandler:^(BOOL success) {
+            if (!success) {
+                suppressBreadcrumbUntil = 0;
+                BCXAlert(@"无法打开此 URL。请检查目标应用是否已安装。");
+            }
+        }];
+        return;
+    }
     if (![kind isEqualToString:@"builtin"]) return;
     if ([identifier isEqualToString:@"control"]) showControlCenter();
     else if ([identifier isEqualToString:@"notification"]) [[%c(SBCoverSheetPresentationManager) sharedInstance] setCoverSheetPresented:YES animated:YES withCompletion:nil];
     else if ([identifier isEqualToString:@"screenshot"]) [(SpringBoard *)UIApplication.sharedApplication takeScreenshot];
     else if ([identifier isEqualToString:@"lock"]) [(SpringBoard *)UIApplication.sharedApplication _simulateLockButtonPress];
     else if ([identifier isEqualToString:@"closeapps"]) BCXCloseBackgroundApps();
+    else if ([identifier isEqualToString:@"clearall"]) BCXClearAllBackgroundApps();
     else if ([identifier isEqualToString:@"respring"]) kill(getpid(), SIGTERM);
     else if ([identifier isEqualToString:@"closeandrespring"]) {
         BCXCloseBackgroundApps();

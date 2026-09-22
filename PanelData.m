@@ -112,6 +112,7 @@ NSArray<NSDictionary *> *BCXBuiltinActions(void) {
         @{@"kind":@"builtin", @"id":@"lock", @"title":@"锁屏", @"symbol":@"lock"},
         @{@"kind":@"builtin", @"id":@"respring", @"title":@"重启 SpringBoard", @"symbol":@"arrow.clockwise"},
         @{@"kind":@"builtin", @"id":@"closeapps", @"title":@"关闭后台应用", @"symbol":@"xmark.app"},
+        @{@"kind":@"builtin", @"id":@"clearall", @"title":@"清理全部应用后台", @"symbol":@"square.stack.3d.up.slash"},
         @{@"kind":@"builtin", @"id":@"closeandrespring", @"title":@"关闭后台并重启 SB", @"symbol":@"arrow.triangle.2.circlepath"},
         @{@"kind":@"builtin", @"id":@"userspace", @"title":@"重启用户空间", @"symbol":@"power"},
         @{@"kind":@"builtin", @"id":@"reboot", @"title":@"重启手机", @"symbol":@"restart"},
@@ -127,6 +128,7 @@ NSString *BCXSymbol(NSDictionary *item) {
     if ([kind isEqualToString:@"shortcut"]) return @"square.stack.3d.up";
     if ([kind isEqualToString:@"quick"]) return @"app.badge";
     if ([kind isEqualToString:@"app"]) return @"app";
+    if ([kind isEqualToString:@"url"]) return @"link";
     return [item[@"symbol"] isKindOfClass:NSString.class] ? item[@"symbol"] : @"square.grid.2x2";
 }
 

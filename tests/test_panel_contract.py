@@ -37,7 +37,7 @@ assert "BCX_PANEL_MIN_WIDTH" in prefs and "BCXPanelMinimumWidth()" in panel
 assert "sizeWithAttributes" in panel and "MIN(280, ceil(titleWidth))" in panel
 assert "distance >= 40 || velocity >= 600" in panel
 assert "BCXUpdatePanel(MAX(0, distance))" in panel and "BCXFinishPanel(NO)" in panel
-for removed in ("SBFluidSwitcherGestureManager", "SBFluidSwitcherGestureExclusionTrapezoid", "SBMainSwitcherViewController"):
+for removed in ("SBFluidSwitcherGestureManager", "SBFluidSwitcherGestureExclusionTrapezoid"):
     assert removed not in tweak and removed not in header
 
 assert "WFSpringBoardWorkflowRunnerClient" in tweak
@@ -59,7 +59,12 @@ assert '@"手柄外观"' in prefs and "BCXHandleAppearanceController" in prefs
 assert "BCXPickerModeOpenApps" in panel_settings and 'BCXOpenApplication(identifier)' in tweak
 assert '[@"kind"] isEqualToString:@"app"' in data
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel35" in control
+assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel36" in control
+assert '@"clearall"' in data and 'BCXClearAllBackgroundApps()' in tweak
+assert '[kind isEqualToString:@"url"]' in tweak and 'BCXSkipNextBreadcrumb()' in tweak
+assert '@"URL 链接"' in panel_settings and 'addURL' in panel_settings
+assert 'supportedInterfaceOrientations { return UIInterfaceOrientationMaskPortrait; }' in panel
+assert 'UIInterfaceOrientationIsPortrait' in panel and 'self.view.bounds.size.height > self.view.bounds.size.width' not in panel
 assert 'BCXIconViewForBundleID(bundleID, YES)' in tweak
 assert 'BCXIconViewForBundleID(bundleID, NO)' in tweak
 assert 'BCXCacheQuickActions(BCXBundleIDForIconView(self), stored)' in tweak

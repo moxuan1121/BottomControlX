@@ -163,7 +163,7 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
     if (self.mode == BCXPickerModeApps) return [self itemsForAppSection:section].count;
     if (self.mode != BCXPickerModePanel) return self.visibleChoices.count;
     if (section == 0) return BCXPanelItemsForKey(self.zoneKey).count;
-    return section == 1 ? 4 : 1;
+    return section == 1 ? 5 : 1;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
@@ -188,8 +188,8 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
     cell.imageView.tintColor = UIColor.systemBlueColor;
     NSInteger smallIcon = MIN(30, MAX(18, BCXIconSize() * 0.6));
     if (self.mode == BCXPickerModePanel && path.section == 1) {
-        cell.textLabel.text = @[@"系统与越狱动作", @"快捷指令", @"应用快捷方式", @"打开应用"][path.row];
-        cell.imageView.image = [UIImage systemImageNamed:@[@"gearshape", @"square.stack.3d.up", @"app.badge", @"app"][path.row]
+        cell.textLabel.text = @[@"系统与越狱动作", @"快捷指令", @"应用快捷方式", @"打开应用", @"URL 链接"][path.row];
+        cell.imageView.image = [UIImage systemImageNamed:@[@"gearshape", @"square.stack.3d.up", @"app.badge", @"app", @"link"][path.row]
                                            withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:smallIcon]];
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     } else if (!(self.mode == BCXPickerModePanel && path.section == 2)) {
@@ -262,6 +262,7 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
         if (path.section == 0) { [self editItemAtIndex:path.row]; return; }
         if (path.section == 2) return;
         if (path.section != 1) return;
+        if (path.row == 4) { [self addURL]; return; }
         BCXPickerMode mode = [@[@(BCXPickerModeBuiltins), @(BCXPickerModeShortcuts), @(BCXPickerModeApps), @(BCXPickerModeOpenApps)][path.row] integerValue];
         NSString *title = @[@"系统与越狱动作", @"快捷指令", @"应用快捷方式", @"打开应用"][path.row];
         BCXPanelSettingsController *picker = [[BCXPanelSettingsController alloc] initWithMode:mode title:title];
@@ -410,6 +411,37 @@ static UIImage *BCXScaledSettingsIcon(UIImage *image) {
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     if (self.mode == BCXPickerModePanel) [self.tableView reloadData];
+}
+
+- (void)addURL {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"添加 URL 链接"
+        message:@"支持网页及已安装应用的 URL Scheme" preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+        field.placeholder = @"https://example.com 或 app://...";
+        field.keyboardType = UIKeyboardTypeURL;
+        field.autocapitalizationType = UITextAutocapitalizationTypeNone;
+    }];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = @"显示名称（可选）"; }];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"添加" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        NSString *address = [alert.textFields[0].text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+        NSURL *url = [NSURL URLWithString:address];
+        if (!url.scheme.length || [@[@"file", @"javascript", @"data"] containsObject:url.scheme.lowercaseString] ||
+            ([@[@"http", @"https"] containsObject:url.scheme.lowercaseString] && !url.host.length)) {
+            UIAlertController *error = [UIAlertController alertControllerWithTitle:@"URL 无效"
+                message:@"请输入完整链接，例如 https://example.com。" preferredStyle:UIAlertControllerStyleAlert];
+            [error addAction:[UIAlertAction actionWithTitle:@"知道了" style:UIAlertActionStyleDefault handler:nil]];
+            [self presentViewController:error animated:YES completion:nil];
+            return;
+        }
+        NSString *name = [alert.textFields[1].text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+        if (!name.length) name = url.host ?: address;
+        NSMutableArray *items = [BCXPanelItemsForKey(self.zoneKey) mutableCopy];
+        [items addObject:@{@"kind":@"url", @"id":address, @"title":name}];
+        BCXSavePanelItemsForKey(self.zoneKey, items);
+        [self.tableView reloadData];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)setSpecifier:(PSSpecifier *)specifier {

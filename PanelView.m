@@ -36,6 +36,8 @@ static void (^handleRunAction)(NSDictionary *item);
 @end
 
 @implementation BCXPanelController
+- (BOOL)shouldAutorotate { return NO; }
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskPortrait; }
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = UIColor.clearColor;
@@ -132,6 +134,8 @@ static void (^handleRunAction)(NSDictionary *item);
 @end
 
 @implementation BCXHandleController
+- (BOOL)shouldAutorotate { return NO; }
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskPortrait; }
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = UIColor.clearColor;
@@ -147,17 +151,19 @@ static void (^handleRunAction)(NSDictionary *item);
     touchView.tag = fromLeft ? 1 : 2;
     UIView *pill = [UIView new];
     pill.tag = 10;
-    pill.backgroundColor = [UIColor colorWithWhite:0.18 alpha:0.72];
+    pill.backgroundColor = [UIColor colorWithWhite:0.36 alpha:0.88];
     pill.layer.cornerRadius = 8;
+    pill.layer.cornerCurve = kCACornerCurveContinuous;
     pill.layer.shadowColor = UIColor.blackColor.CGColor;
-    pill.layer.shadowOpacity = 0.22;
-    pill.layer.shadowRadius = 3;
-    pill.layer.shadowOffset = CGSizeMake(0, 1);
+    pill.layer.shadowOpacity = 0.14;
+    pill.layer.shadowRadius = 5;
+    pill.layer.shadowOffset = CGSizeZero;
     [touchView addSubview:pill];
     UIView *line = [UIView new];
     line.tag = 11;
-    line.backgroundColor = [UIColor colorWithWhite:1 alpha:0.86];
+    line.backgroundColor = [UIColor colorWithWhite:1 alpha:0.96];
     line.layer.cornerRadius = 1.5;
+    line.layer.cornerCurve = kCACornerCurveContinuous;
     [pill addSubview:line];
     [touchView addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dragHandle:)]];
     return touchView;
@@ -191,7 +197,8 @@ static void (^handleRunAction)(NSDictionary *item);
 }
 
 - (void)reloadHandles {
-    BOOL portrait = self.view.bounds.size.height > self.view.bounds.size.width;
+    // The scene's interface orientation is stable while a portrait app animates.
+    BOOL portrait = UIInterfaceOrientationIsPortrait(self.view.window.windowScene.interfaceOrientation);
     self.leftHandle.hidden = !portrait || BCXPanelItemsForKey(BCX_LEFT_ITEMS).count == 0;
     self.rightHandle.hidden = !portrait || BCXPanelItemsForKey(BCX_RIGHT_ITEMS).count == 0;
 }
