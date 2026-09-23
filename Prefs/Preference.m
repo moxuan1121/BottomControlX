@@ -73,8 +73,12 @@
     [items addObject:[PSSpecifier preferenceSpecifierNamed:@"手柄外观" target:self set:Nil get:Nil
         detail:BCXHandleAppearanceController.class cell:PSLinkCell edit:Nil]];
 
-    [items addObject:[self groupNamed:@"手势触发距离" footer:@"向屏幕内滑动达到设定距离即可呼出；快速滑动仍可触发。"]];
+    [items addObject:[self groupNamed:@"普通滑动触发距离" footer:@"向屏幕内滑动达到设定距离后呼出。"]];
     [items addObject:[self sliderForKey:BCX_HANDLE_TRIGGER_DISTANCE defaultValue:40 minimum:10 maximum:120]];
+    [items addObject:[self groupNamed:@"快速滑动最低距离" footer:@"默认跟随普通距离；单独调整后，快速滑动需同时达到距离和速度门槛。"]];
+    [items addObject:[self sliderForKey:BCX_HANDLE_FAST_DISTANCE defaultValue:40 minimum:10 maximum:120]];
+    [items addObject:[self groupNamed:@"快速滑动最低速度" footer:@"只有距离和速度同时达标才按快速滑动触发。"]];
+    [items addObject:[self sliderForKey:BCX_HANDLE_FAST_VELOCITY defaultValue:600 minimum:300 maximum:1800]];
 
     [items addObject:[self groupNamed:@"维护" footer:nil]];
     [items addObject:[self buttonNamed:@"重置全部设置" action:@selector(resetSettings)]];
@@ -101,6 +105,8 @@
     NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH]
         ?: [NSDictionary dictionaryWithContentsOfFile:LEGACY_PREF_PATH];
     if (prefs[key]) return prefs[key];
+    if ([key isEqualToString:BCX_HANDLE_FAST_DISTANCE])
+        return prefs[BCX_HANDLE_TRIGGER_DISTANCE] ?: specifier.properties[@"default"];
     return specifier.properties[@"default"];
 }
 

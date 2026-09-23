@@ -15,6 +15,8 @@ extern "C" {
 #define BCX_HANDLE_SHADOW_POSITION @"handleShadowPosition"
 #define BCX_PANEL_MIN_WIDTH @"panelMinimumWidth"
 #define BCX_HANDLE_TRIGGER_DISTANCE @"handleTriggerDistance"
+#define BCX_HANDLE_FAST_DISTANCE @"handleFastDistance"
+#define BCX_HANDLE_FAST_VELOCITY @"handleFastVelocity"
 
 NSArray<NSDictionary *> *BCXPanelItemsForKey(NSString *key);
 NSArray<NSDictionary *> *BCXHandleItems(void);
@@ -39,6 +41,8 @@ CGFloat BCXHandleShadowWidth(void);
 CGFloat BCXHandleShadowPosition(void);
 CGFloat BCXPanelMinimumWidth(void);
 CGFloat BCXHandleTriggerDistance(void);
+CGFloat BCXHandleFastDistance(void);
+CGFloat BCXHandleFastVelocity(void);
 NSString *BCXSymbol(NSDictionary *item);
 UIImage *BCXItemImage(NSDictionary *item, CGFloat size);
 UIImage *BCXApplicationIcon(NSString *bundleID);

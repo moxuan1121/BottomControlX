@@ -219,7 +219,11 @@ static void (^handleRunAction)(NSDictionary *item);
         BCXUpdatePanel(MAX(0, distance));
     } else if (pan.state == UIGestureRecognizerStateEnded) {
         CGFloat velocity = [pan velocityInView:self.view].x * (fromLeft ? 1 : -1);
-        BCXFinishPanel(distance >= BCXHandleTriggerDistance() || velocity >= 600);
+        CGFloat vertical = fabs([pan translationInView:self.view].y);
+        BOOL inward = distance > 0 && vertical <= distance * 0.75;
+        BOOL normal = distance >= BCXHandleTriggerDistance();
+        BOOL fast = distance >= BCXHandleFastDistance() && velocity >= BCXHandleFastVelocity();
+        BCXFinishPanel(inward && (normal || fast));
     } else if (pan.state == UIGestureRecognizerStateCancelled || pan.state == UIGestureRecognizerStateFailed) {
         BCXFinishPanel(NO);
     }
