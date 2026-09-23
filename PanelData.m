@@ -115,22 +115,6 @@ CGFloat BCXPanelMinimumWidth(void) {
     return width >= 40 ? MIN(220, width) : 104;
 }
 
-CGFloat BCXHandleTriggerDistance(void) {
-    CGFloat distance = [BCXPreferences()[BCX_HANDLE_TRIGGER_DISTANCE] doubleValue];
-    return distance >= 10 ? MIN(120, distance) : 40;
-}
-
-CGFloat BCXHandleFastDistance(void) {
-    id value = BCXPreferences()[BCX_HANDLE_FAST_DISTANCE];
-    CGFloat distance = [value doubleValue];
-    return value && distance >= 10 ? MIN(120, distance) : BCXHandleTriggerDistance();
-}
-
-CGFloat BCXHandleFastVelocity(void) {
-    CGFloat velocity = [BCXPreferences()[BCX_HANDLE_FAST_VELOCITY] doubleValue];
-    return velocity >= 300 ? MIN(1800, velocity) : 600;
-}
-
 NSArray<NSDictionary *> *BCXBuiltinActions(void) {
     return @[
         @{@"kind":@"builtin", @"id":@"control", @"title":@"控制中心", @"symbol":@"switch.2"},

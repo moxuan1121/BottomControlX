@@ -37,14 +37,10 @@ for key in ("BCX_HANDLE_INDICATOR_POSITION", "BCX_HANDLE_SHADOW_WIDTH", "BCX_HAN
     assert key in prefs and key in data
 assert "BCX_PANEL_MIN_WIDTH" in prefs and "BCXPanelMinimumWidth()" in panel
 assert "sizeWithAttributes" in panel and "MIN(280, ceil(titleWidth))" in panel
-assert "inward && (normal || fast)" in panel
-assert "distance >= BCXHandleTriggerDistance()" in panel
-assert "distance >= BCXHandleFastDistance() && velocity >= BCXHandleFastVelocity()" in panel
-assert "vertical <= distance * 0.75" in panel
-assert "BCX_HANDLE_FAST_DISTANCE" in prefs and "BCX_HANDLE_FAST_VELOCITY" in prefs
-assert "BCXHandleTriggerDistance();" in data and "prefs[BCX_HANDLE_TRIGGER_DISTANCE]" in prefs
-assert "BCX_HANDLE_TRIGGER_DISTANCE" in prefs and "BCXHandleTriggerDistance" in data
-assert "minimum:10 maximum:120" in prefs and "minimum:40 maximum:220" in prefs
+assert "BCXFinishPanel(distance >= 40 || velocity >= 600)" in panel
+for removed in ("BCX_HANDLE_TRIGGER_DISTANCE", "BCX_HANDLE_FAST_DISTANCE", "BCX_HANDLE_FAST_VELOCITY"):
+    assert removed not in prefs and removed not in data and removed not in panel
+assert "minimum:40 maximum:220" in prefs
 assert "BCXUpdatePanel(MAX(0, distance))" in panel and "BCXFinishPanel(NO)" in panel
 for removed in ("SBFluidSwitcherGestureManager", "SBFluidSwitcherGestureExclusionTrapezoid"):
     assert removed not in tweak and removed not in header
@@ -69,7 +65,7 @@ assert '@"手柄外观"' in prefs and "BCXHandleAppearanceController" in prefs
 assert "BCXPickerModeOpenApps" in panel_settings and 'BCXOpenApplication(identifier)' in tweak
 assert '[@"kind"] isEqualToString:@"app"' in data
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel42" in control
+assert "Name: ShortcutPanel" in control and "Version: 1.0" in control and "Author: mox1121" in control
 assert build_script.startswith("#!/bin/sh\nset -eu\n") and "THEOS_PACKAGE_SCHEME=roothide" in build_script
 assert 'BCXScaledSettingsIcon(BCXApplicationIcon(item[@"id"]))' in panel_settings
 assert 'cell.textLabel.textColor = UIColor.blackColor' in prefs
