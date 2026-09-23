@@ -215,7 +215,7 @@ static void (^handleRunAction)(NSDictionary *item);
         BCXUpdatePanel(MAX(0, distance));
     } else if (pan.state == UIGestureRecognizerStateEnded) {
         CGFloat velocity = [pan velocityInView:self.view].x * (fromLeft ? 1 : -1);
-        BCXFinishPanel(distance >= 40 || velocity >= 600);
+        BCXFinishPanel(distance >= BCXHandleTriggerDistance() || velocity >= 600);
     } else if (pan.state == UIGestureRecognizerStateCancelled || pan.state == UIGestureRecognizerStateFailed) {
         BCXFinishPanel(NO);
     }

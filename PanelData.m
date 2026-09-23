@@ -112,7 +112,12 @@ CGFloat BCXHandleShadowPosition(void) {
 
 CGFloat BCXPanelMinimumWidth(void) {
     CGFloat width = [BCXPreferences()[BCX_PANEL_MIN_WIDTH] doubleValue];
-    return width >= 80 ? MIN(220, width) : 104;
+    return width >= 40 ? MIN(220, width) : 104;
+}
+
+CGFloat BCXHandleTriggerDistance(void) {
+    CGFloat distance = [BCXPreferences()[BCX_HANDLE_TRIGGER_DISTANCE] doubleValue];
+    return distance >= 10 ? MIN(120, distance) : 40;
 }
 
 NSArray<NSDictionary *> *BCXBuiltinActions(void) {

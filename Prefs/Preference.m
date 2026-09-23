@@ -57,7 +57,7 @@
 
 - (NSArray *)specifiers {
     if (_specifiers) return _specifiers;
-    self.title = @"侧边捷径";
+    self.title = @"ShortcutPanel";
     NSMutableArray *items = [NSMutableArray array];
     PSSpecifier *item = [PSSpecifier preferenceSpecifierNamed:@"启用插件" target:self
         set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:)
@@ -77,6 +77,9 @@
     [items addObject:link];
     [items addObject:[PSSpecifier preferenceSpecifierNamed:@"手柄外观" target:self set:Nil get:Nil
         detail:BCXHandleAppearanceController.class cell:PSLinkCell edit:Nil]];
+
+    [items addObject:[self groupNamed:@"手势触发距离" footer:@"向屏幕内滑动达到设定距离即可呼出；快速滑动仍可触发。"]];
+    [items addObject:[self sliderForKey:BCX_HANDLE_TRIGGER_DISTANCE defaultValue:40 minimum:10 maximum:120]];
 
     [items addObject:[self groupNamed:@"维护" footer:nil]];
     [items addObject:[self buttonNamed:@"重置全部设置" action:@selector(resetSettings)]];
@@ -154,7 +157,7 @@
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     self.navigationItem.titleView = nil;
-    self.title = @"侧边捷径";
+    self.title = @"ShortcutPanel";
 }
 
 @end
@@ -176,7 +179,7 @@
         [self groupNamed:@"阴影位置" footer:@"正数向屏幕内侧移动，负数向屏幕外侧延伸。"],
         [self sliderForKey:BCX_HANDLE_SHADOW_POSITION defaultValue:-1 minimum:-6 maximum:8],
         [self groupNamed:@"面板最小宽度" footer:@"长动作名称仍会自动拓宽面板。"],
-        [self sliderForKey:BCX_PANEL_MIN_WIDTH defaultValue:104 minimum:80 maximum:220]
+        [self sliderForKey:BCX_PANEL_MIN_WIDTH defaultValue:104 minimum:40 maximum:220]
     ] mutableCopy];
     return _specifiers;
 }

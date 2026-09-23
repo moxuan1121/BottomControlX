@@ -5,6 +5,6 @@
 		detail = "BottomControlXController";
 		icon = "Icon.png";
 		isController = 1;
-		label = "侧边捷径";
+		label = "ShortcutPanel";
 	};
 }

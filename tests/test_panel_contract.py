@@ -36,7 +36,9 @@ for key in ("BCX_HANDLE_INDICATOR_POSITION", "BCX_HANDLE_SHADOW_WIDTH", "BCX_HAN
     assert key in prefs and key in data
 assert "BCX_PANEL_MIN_WIDTH" in prefs and "BCXPanelMinimumWidth()" in panel
 assert "sizeWithAttributes" in panel and "MIN(280, ceil(titleWidth))" in panel
-assert "distance >= 40 || velocity >= 600" in panel
+assert "distance >= BCXHandleTriggerDistance() || velocity >= 600" in panel
+assert "BCX_HANDLE_TRIGGER_DISTANCE" in prefs and "BCXHandleTriggerDistance" in data
+assert "minimum:10 maximum:120" in prefs and "minimum:40 maximum:220" in prefs
 assert "BCXUpdatePanel(MAX(0, distance))" in panel and "BCXFinishPanel(NO)" in panel
 for removed in ("SBFluidSwitcherGestureManager", "SBFluidSwitcherGestureExclusionTrapezoid"):
     assert removed not in tweak and removed not in header
@@ -61,7 +63,7 @@ assert '@"手柄外观"' in prefs and "BCXHandleAppearanceController" in prefs
 assert "BCXPickerModeOpenApps" in panel_settings and 'BCXOpenApplication(identifier)' in tweak
 assert '[@"kind"] isEqualToString:@"app"' in data
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: 侧边捷径" in control and "Version: 1.0.1+panel39" in control
+assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel40" in control
 assert 'BCXScaledSettingsIcon(BCXApplicationIcon(item[@"id"]))' in panel_settings
 assert 'cell.textLabel.textColor = UIColor.blackColor' in prefs
 assert 'cell.userInteractionEnabled = YES' in prefs and 'cell:PSButtonCell' in prefs
