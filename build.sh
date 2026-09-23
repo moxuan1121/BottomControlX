@@ -1,9 +1,3 @@
-#/bin/sh
-
-make clean package
-
-make clean package THEOS_PACKAGE_SCHEME=rootless
-
-make clean package THEOS_PACKAGE_SCHEME=roothide
-
-make clean
+#!/bin/sh
+set -eu
+make clean package THEOS_PACKAGE_SCHEME=roothide FINALPACKAGE=1

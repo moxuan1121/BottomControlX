@@ -326,6 +326,8 @@ static NSArray *BCXApplicationQuickActions(NSString *bundleID) {
 }
 
 static NSString *BCXLocalizedQuickActionTitle(NSString *bundleID, NSString *type, NSString *fallback) {
+    if (!bundleID.length || !type.length) return fallback;
+    @try {
     Class proxyClass = NSClassFromString(@"LSApplicationProxy");
     SEL proxySelector = @selector(applicationProxyForIdentifier:);
     if (![proxyClass respondsToSelector:proxySelector]) return fallback;
@@ -333,13 +335,17 @@ static NSString *BCXLocalizedQuickActionTitle(NSString *bundleID, NSString *type
     NSURL *url = [proxy respondsToSelector:@selector(bundleURL)]
         ? ((id (*)(id, SEL))objc_msgSend)(proxy, @selector(bundleURL)) : nil;
     NSBundle *bundle = url ? [NSBundle bundleWithURL:url] : nil;
-    for (NSDictionary *entry in bundle.infoDictionary[@"UIApplicationShortcutItems"]) {
+    id entries = bundle.infoDictionary[@"UIApplicationShortcutItems"];
+    if (![entries isKindOfClass:NSArray.class]) return fallback;
+    for (id entry in entries) {
+        if (![entry isKindOfClass:NSDictionary.class]) continue;
         if (![entry[@"UIApplicationShortcutItemType"] isEqualToString:type]) continue;
         NSString *key = entry[@"UIApplicationShortcutItemTitle"];
         if (![key isKindOfClass:NSString.class] || !key.length) break;
         NSString *title = [bundle localizedStringForKey:key value:key table:@"InfoPlist"];
         return title.length ? title : fallback;
     }
+    } @catch (NSException *exception) { return fallback; }
     return fallback;
 }
 

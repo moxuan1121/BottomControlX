@@ -1,15 +1,10 @@
 #import <UIKit/UIKit.h>
 #import <Preferences/PSListController.h>
 #import <Preferences/PSSpecifier.h>
-#import <Preferences/PSSliderTableCell.h>
 #import <spawn.h>
 #import "BCXSliderCell.h"
 #import "../Common.h"
 #import "../PanelData.h"
-
-@interface UIImage (BCXSettingsIcon)
-+ (UIImage *)imageNamed:(NSString *)name inBundle:(NSBundle *)bundle;
-@end
 
 @interface BCXPanelSettingsController : PSViewController
 @end

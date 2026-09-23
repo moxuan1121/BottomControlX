@@ -72,7 +72,7 @@ static void BCXPresentAlert(UIAlertController *alert) {
 }
 
 static void BCXAlert(NSString *message) {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"快捷面板" message:message preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"ShortcutPanel" message:message preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"知道了" style:UIAlertActionStyleDefault handler:nil]];
     BCXPresentAlert(alert);
 }

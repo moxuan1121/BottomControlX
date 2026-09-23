@@ -16,6 +16,7 @@ header = (root / "Tweak.h").read_text(encoding="utf-8")
 common = (root / "Common.h").read_text(encoding="utf-8")
 control = (root / "control").read_text(encoding="utf-8")
 makefile = (root / "Makefile").read_text(encoding="utf-8")
+build_script = (root / "build.sh").read_text(encoding="utf-8")
 
 assert "BCX_LEFT_ITEMS" in prefs and "BCXHandleItems()" in panel
 for removed in ("BCX_CENTER_ITEMS", "leftValue", "rightWidth", "edgeInsetValue", "showGestureAreas"):
@@ -63,7 +64,8 @@ assert '@"手柄外观"' in prefs and "BCXHandleAppearanceController" in prefs
 assert "BCXPickerModeOpenApps" in panel_settings and 'BCXOpenApplication(identifier)' in tweak
 assert '[@"kind"] isEqualToString:@"app"' in data
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel40" in control
+assert "Name: ShortcutPanel" in control and "Version: 1.0.1+panel41" in control
+assert build_script.startswith("#!/bin/sh\nset -eu\n") and "THEOS_PACKAGE_SCHEME=roothide" in build_script
 assert 'BCXScaledSettingsIcon(BCXApplicationIcon(item[@"id"]))' in panel_settings
 assert 'cell.textLabel.textColor = UIColor.blackColor' in prefs
 assert 'cell.userInteractionEnabled = YES' in prefs and 'cell:PSButtonCell' in prefs
@@ -75,7 +77,8 @@ assert '@"clearall"' in data and 'BCXClearAllBackgroundApps()' in tweak
 assert '[kind isEqualToString:@"url"]' in tweak and 'BCXSkipNextBreadcrumb()' in tweak
 assert '@"URL 链接"' in panel_settings and 'addURL' in panel_settings
 assert 'supportedInterfaceOrientations { return UIInterfaceOrientationMaskPortrait; }' in panel
-assert 'UIInterfaceOrientationIsPortrait' in panel and 'self.view.bounds.size.height > self.view.bounds.size.width' not in panel
+assert 'UIInterfaceOrientationIsPortrait' in panel and 'orientation == UIInterfaceOrientationUnknown' in panel
+assert 'if (!handles.leftHandle || !handles.rightHandle) return;' in panel
 assert 'BCXIconViewForBundleID(bundleID, YES)' in tweak
 assert 'BCXIconViewForBundleID(bundleID, NO)' in tweak
 assert 'BCXCacheQuickActions(BCXBundleIDForIconView(self), stored)' in tweak

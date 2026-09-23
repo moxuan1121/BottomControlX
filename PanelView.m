@@ -27,6 +27,7 @@ static void (^handleRunAction)(NSDictionary *item);
 @implementation BCXHandleWindow
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
     BCXHandleController *controller = (BCXHandleController *)self.rootViewController;
+    if (!controller.leftHandle || !controller.rightHandle) return nil;
     for (UIView *handle in @[controller.leftHandle, controller.rightHandle]) {
         if (!handle.hidden && CGRectContainsPoint(handle.frame, point))
             return [handle hitTest:[handle convertPoint:point fromView:controller.view] withEvent:event];
@@ -198,7 +199,10 @@ static void (^handleRunAction)(NSDictionary *item);
 
 - (void)reloadHandles {
     // The scene's interface orientation is stable while a portrait app animates.
-    BOOL portrait = UIInterfaceOrientationIsPortrait(self.view.window.windowScene.interfaceOrientation);
+    UIInterfaceOrientation orientation = self.view.window.windowScene.interfaceOrientation;
+    BOOL portrait = orientation == UIInterfaceOrientationUnknown
+        ? self.view.bounds.size.height > self.view.bounds.size.width
+        : UIInterfaceOrientationIsPortrait(orientation);
     BOOL available = portrait && BCXHandleItems().count > 0;
     self.leftHandle.hidden = !available || BCXHandleOnRight();
     self.rightHandle.hidden = !available || !BCXHandleOnRight();
@@ -230,6 +234,10 @@ void BCXConfigureSideHandles(BOOL enabled, void (^runAction)(NSDictionary *item)
         if ([candidate isKindOfClass:UIWindowScene.class] && candidate.activationState == UISceneActivationStateForegroundActive) { scene = (UIWindowScene *)candidate; break; }
     }
     if (!scene) return;
+    if (handleWindow && handleWindow.windowScene != scene) {
+        handleWindow.hidden = YES;
+        handleWindow = nil;
+    }
     if (!handleWindow) {
         handleWindow = [[BCXHandleWindow alloc] initWithWindowScene:scene];
         handleWindow.frame = scene.coordinateSpace.bounds;
@@ -294,6 +302,7 @@ void BCXFinishPanel(BOOL show) {
             [previousKeyWindow makeKeyWindow];
             previousKeyWindow = nil;
             BCXHandleController *handles = (BCXHandleController *)handleWindow.rootViewController;
+            if (!handles.leftHandle || !handles.rightHandle) return;
             [handles reloadHandles];
             [handles.view layoutIfNeeded];
             for (UIView *handle in @[handles.leftHandle, handles.rightHandle]) {
