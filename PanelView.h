@@ -9,6 +9,7 @@ BOOL BCXBeginSidePanel(NSArray<NSDictionary *> *items, BOOL fromLeft, void (^run
 void BCXUpdatePanel(CGFloat dragDistance);
 void BCXFinishPanel(BOOL show);
 void BCXHidePanel(void);
+void BCXSetDeviceLocked(BOOL locked);
 
 #ifdef __cplusplus
 }

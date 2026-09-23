@@ -476,6 +476,14 @@ static NSString *BCXBundleIDForIconView(id iconView) {
     return nil;
 }
 
+%hook SBLockScreenManager
+- (void)_setUILocked:(BOOL)locked {
+    if (locked) BCXSetDeviceLocked(YES);
+    %orig;
+    if (!locked) BCXSetDeviceLocked(NO);
+}
+%end
+
 %hook SBIconView
 - (void)setApplicationShortcutItems:(NSArray *)items {
     %orig;

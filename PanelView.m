@@ -4,6 +4,7 @@
 
 static UIWindow *panelWindow;
 static UIWindow *handleWindow;
+static BOOL deviceLocked;
 static __weak UIWindow *previousKeyWindow;
 static void (^handleRunAction)(NSDictionary *item);
 
@@ -203,7 +204,7 @@ static void (^handleRunAction)(NSDictionary *item);
     BOOL portrait = orientation == UIInterfaceOrientationUnknown
         ? self.view.bounds.size.height > self.view.bounds.size.width
         : UIInterfaceOrientationIsPortrait(orientation);
-    BOOL available = portrait && BCXHandleItems().count > 0;
+    BOOL available = !deviceLocked && portrait && BCXHandleItems().count > 0;
     self.leftHandle.hidden = !available || BCXHandleOnRight();
     self.rightHandle.hidden = !available || !BCXHandleOnRight();
 }
@@ -254,7 +255,7 @@ void BCXConfigureSideHandles(BOOL enabled, void (^runAction)(NSDictionary *item)
 }
 
 BOOL BCXBeginSidePanel(NSArray<NSDictionary *> *items, BOOL fromLeft, void (^runAction)(NSDictionary *item)) {
-    if (panelWindow || !items.count || !handleWindow.windowScene) return NO;
+    if (deviceLocked || panelWindow || !items.count || !handleWindow.windowScene) return NO;
     UIWindowScene *scene = handleWindow.windowScene;
     for (UIWindow *window in scene.windows) if (window.isKeyWindow) { previousKeyWindow = window; break; }
     panelWindow = [[UIWindow alloc] initWithWindowScene:scene];
@@ -287,6 +288,7 @@ void BCXUpdatePanel(CGFloat dragDistance) {
 
 void BCXFinishPanel(BOOL show) {
     if (!panelWindow) return;
+    if (deviceLocked) show = NO;
     UIWindow *window = panelWindow;
     if (show) {
         handleWindow.hidden = YES;
@@ -324,3 +326,9 @@ void BCXFinishPanel(BOOL show) {
 }
 
 void BCXHidePanel(void) { if (panelWindow) BCXFinishPanel(NO); }
+
+void BCXSetDeviceLocked(BOOL locked) {
+    deviceLocked = locked;
+    if (locked) BCXHidePanel();
+    [(BCXHandleController *)handleWindow.rootViewController reloadHandles];
+}
