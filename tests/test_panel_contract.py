@@ -65,12 +65,12 @@ assert '@"手柄外观"' in prefs and "BCXHandleAppearanceController" in prefs
 assert "BCXPickerModeOpenApps" in panel_settings and 'BCXOpenApplication(identifier)' in tweak
 assert '[@"kind"] isEqualToString:@"app"' in data
 assert "com.mox1121.shortcutpanel" in common and "Package: com.mox1121.shortcutpanel" in control
-assert "Name: ShortcutPanel" in control and "Version: 1.0.1" in control and "Author: mox1121" in control
+assert "Name: ShortcutPanel" in control and "Version: 1.0.2" in control and "Author: mox1121" in control
 assert "- (void)_setUILocked:(BOOL)locked" in tweak and "BCXSetDeviceLocked(YES)" in tweak
 assert "if (deviceLocked) show = NO;" in panel and "if (deviceLocked || panelWindow" in panel
 assert build_script.startswith("#!/bin/sh\nset -eu\n") and "THEOS_PACKAGE_SCHEME=roothide" in build_script
 assert 'BCXScaledSettingsIcon(BCXApplicationIcon(item[@"id"]))' in panel_settings
-assert 'cell.textLabel.textColor = UIColor.blackColor' in prefs
+assert 'cell.textLabel.textColor = UIColor.labelColor' in prefs
 assert 'cell.userInteractionEnabled = YES' in prefs and 'cell:PSButtonCell' in prefs
 assert '@"copyshot"' in data and 'BCXCopyScreenshot()' in tweak
 assert '_UICreateScreenUIImage' in tweak and 'UIPasteboard.generalPasteboard.image = image' in tweak

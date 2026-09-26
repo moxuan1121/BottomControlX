@@ -127,7 +127,7 @@
     if ([cell.textLabel.text isEqualToString:@"手柄位置"]) {
         cell.userInteractionEnabled = YES;
         cell.contentView.userInteractionEnabled = YES;
-        cell.textLabel.textColor = UIColor.blackColor;
+        cell.textLabel.textColor = UIColor.labelColor;
         UISegmentedControl *side = [[UISegmentedControl alloc] initWithItems:@[@"左", @"右"]];
         side.frame = CGRectMake(0, 0, 120, 34);
         side.userInteractionEnabled = YES;
